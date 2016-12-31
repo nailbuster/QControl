@@ -5,8 +5,6 @@ This project is a free/open-source DIY project that allows you control of your B
 
 Q-Control was designed to be used on many different types of AVRs.  It is using the Arduino IDE/Core so should work on many different AVRs moving forward. I've compiled (but not completly tested) on atmega328, MEGA2560, stm32 (maple mini), esp8266....
 
-This is a non-commerical product, just a hobby of mine (and learning experience too)...  It's without any warranty and is currently in BETA release....things could change!
-
 Features include:
     1x Pit Probe 
     3x Food probes
