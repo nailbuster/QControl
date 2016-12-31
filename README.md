@@ -5,15 +5,15 @@ This project is a free/open-source DIY project that allows you control of your B
 
 Q-Control was designed to be used on many different types of AVRs.  It is using the Arduino IDE/Core so should work on many different AVRs moving forward. I've compiled (but not completly tested) on atmega328, MEGA2560, stm32 (maple mini), esp8266....
 
-Features include:
-    1x Pit Probe 
-    3x Food probes
-    Any/All probes can be either ThermoCouple(Max6675) or Thermistor Types(ThermoWorks Tx series recommended)
-    Easy to configure via a web interface.
-    Dashboard feature with history graphing of your current cook.
-    Remote Temperature Settings
-    Alarms (Hi/Low) with notifications.
-    and more....
+    Features include:
+        1x Pit Probe 
+        3x Food probes
+        Any/All probes can be either ThermoCouple(Max6675) or Thermistor Types(ThermoWorks Tx series recommended)
+        Easy to configure via a web interface.
+        Dashboard feature with history graphing of your current cook.
+        Remote Temperature Settings
+        Alarms (Hi/Low) with notifications.
+        and more....
     
 Two parts to this project:  
 
