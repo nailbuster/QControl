@@ -17,7 +17,7 @@ https://github.com/Imroy/pubsubclient Pussubclient by: Nick O'Leary, Ian Tester 
 
 Also,  you will need to include all the libraries sub-folders within this git into your arduino libraries folder.
 
-Visit my website:  bbq.nailbuster.com
+Visit my website:  http://bbq.nailbuster.com
 
-Forums:  bbq.nailbuster.com/forum
+Forums:  http://bbq.nailbuster.com/forum
 
