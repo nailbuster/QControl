@@ -19,7 +19,7 @@ Two parts to this project:
 
 1> Q-Control is the PID controller that runs on the AVR.  This code doesn't interact with the internet.
 
-2> Q-Control Espress Module.  This is internet connect device (esp8266 currently) that interacts with the cloud and allows easy configuration via webpages and such.
+2> Q-Control Espress Module.  This is the wifi-internet connected device (esp8266 currently) that interacts with the cloud and allows easy configuration via webpages and such.  The sub-folder in this github has the source for the Module.
 
 The two device interact via a simple serial tx/rx connection.  The Espress Module firware can be updated via OTA(wifi) and in some cases the Espress Module can also flash the AVR.
 
