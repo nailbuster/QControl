@@ -31,7 +31,7 @@ The code should be straightfoward to understand:
 
 Simple Objects Interaction/Definition
 
-#Main Controller Object:  qController.h/cpp
+!Main Controller Object:  qController.h/cpp
 
  QControllerClass		curQ;  //Main Controller
  
