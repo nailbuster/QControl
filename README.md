@@ -31,23 +31,23 @@ Simple Objects Interaction/Definition
 
 Main Controller Object:  qController.h/cpp
 
- QControllerClass		curQ;  //Main Controller
+    QControllerClass		curQ;  //Main Controller
  
- QLinkClass			curLink;  //Link to external esp8266 for web/cloud usually serial
+    QLinkClass			curLink;  //Link to external esp8266 for web/cloud usually serial
  
- QFanClass			curFan;   //Fan controller and Servo controller
+    QFanClass			curFan;   //Fan controller and Servo controller
  
- QPIDClass			curPID;   //PID object that will calculate what FAN output should be.
+    QPIDClass			curPID;   //PID object that will calculate what FAN output should be.
  
- QProbeClass			curProbes[MaxProbes];  //Probes objects, gets temperature support ADC, max6675..etc.
+    QProbeClass			curProbes[MaxProbes];  //Probes objects, gets temperature support ADC, max6675..etc.
  
- QGUIClass			QGUI;     //GUI menu/led/lcd headless for now, does nothing...  
+    QGUIClass			QGUI;     //GUI menu/led/lcd headless for now, does nothing...  
  
 
 .run method is called on most objects (loop) method.  
 
-More info and discussion at my website:  bbq.nailbuster.com
-Visit my forums at:  bbq.nailbuster.com/forum
+More info and discussion at my website:  http://bbq.nailbuster.com
+Visit my forums at:  http://bbq.nailbuster.com/forum
 
 
 
