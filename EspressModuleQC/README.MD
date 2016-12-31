@@ -7,6 +7,8 @@ It works with the Q-Control PID controller and is connected via tx/rx serial com
 
 It allows for internet/cloud updating and configuration of the PID controllers.
 
+This uses the Arudino CORE for esp8266 so you must already be setup to program/compile to an esp8266 device within your IDE.  Core is here:  https://github.com/esp8266/Arduino
+
 To compile with arudino IDE you'll need the following libraries already installed:
 
 myWebServer (written by me): https://github.com/nailbuster/myWebServer Note that this library needs other libraries as well!
