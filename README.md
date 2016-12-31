@@ -1,7 +1,7 @@
 # Q-Control
 Q-Control DIY BBQ Smoker Controller with iOT Cloud Functions
 
-This project is a free/open-source DIY project that allows you control of your BBQ charcoal smoker using a fan and/or servo damper.
+This project is a free/open-source DIY project that allows you control of your BBQ charcoal smoker using a fan and/or servo damper.  This is a NEW!!! project for 2017....feel free to help test/update/improve the project.  My website:  http://bbq.nailbuster.com
 
 Q-Control was designed to be used on many different types of AVRs.  It is using the Arduino IDE/Core so should work on many different AVRs moving forward. I've compiled (but not completly tested) on atmega328, MEGA2560, stm32 (maple mini), esp8266....
 
