@@ -484,6 +484,7 @@ void  GlobalsClass::SendHeatGeneralToAVR(String fname) {   //sends general info 
 void GlobalsClass::SendProbesToAVR(String fname) {   //sends Probes info to HM
 	String values = "";
 	String hmsg;
+	String alarms;
 	File f = SPIFFS.open(fname, "r");
 	if (f) { // we could open the file 
 		values = f.readStringUntil('\n');  //read json         
@@ -506,6 +507,8 @@ void GlobalsClass::SendProbesToAVR(String fname) {   //sends Probes info to HM
 		delay(10);
 
 		char jData[300];
+
+		alarms = "$ALARM,";  //build alarm string ala thingspeak command style
 
 		for (int fx = 0; fx < 4; fx++) {
 			//char coa[15], cob[15], coc[15];
@@ -530,9 +533,15 @@ void GlobalsClass::SendProbesToAVR(String fname) {   //sends Probes info to HM
 				String(root[cP + "off"].asString()).toInt());
 
 			SendStringToAVR(qMakeMsg("P=" + String(fx + 1) + "|" + String(jData)));  //everything else
+
 			
+			alarms += String(root[cP + "all"].asString()) + "," + String(root[cP + "alh"].asString()) +",";  //build alarm setting string;
+						
 
 		}  //for each probe
+
+		//send alarm settings like thingspeak command;
+		ConfigAlarms(alarms);
 
 		SendStringToAVR(qMakeMsg("SAVE|ALL"));   //SAVE ALL
 			

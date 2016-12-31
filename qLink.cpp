@@ -180,16 +180,16 @@ void QLinkClass::checkSerialMsg()   //Process Serial MSG from device.....
 			msgStr.remove(0, curPart.length() + 1);  //remove msg type from msg data
 			curQ.SetValuesJson(msgStr);			
 		}
-		else if (curField == "SA")   // SETALRM|1L|1H|2L|2H|3L|3H|4L|4H*xx
+		else if (curField == "SA")   // SETALRM|1L,1H,2L,2H,3L,3H,4L,4H*xx
 		{									
-			curProbes[0].AlarmMinTemp = String(getValue(msgStr,1,charSep)).toInt();
-			curProbes[0].AlarmMaxTemp = String(getValue(msgStr,2,charSep)).toInt();
-			curProbes[1].AlarmMinTemp = String(getValue(msgStr,3,charSep)).toInt();
-			curProbes[1].AlarmMaxTemp = String(getValue(msgStr,4,charSep)).toInt();
-			curProbes[2].AlarmMinTemp = String(getValue(msgStr,5,charSep)).toInt();
-			curProbes[2].AlarmMaxTemp = String(getValue(msgStr,6,charSep)).toInt();
-			curProbes[3].AlarmMinTemp = String(getValue(msgStr,7,charSep)).toInt();
-			curProbes[3].AlarmMaxTemp = String(getValue(msgStr,8,charSep)).toInt();			
+			curProbes[0].AlarmMinTemp = String(getValue(msgStr,1,',')).toInt();
+			curProbes[0].AlarmMaxTemp = String(getValue(msgStr,2,',')).toInt();
+			curProbes[1].AlarmMinTemp = String(getValue(msgStr,3,',')).toInt();
+			curProbes[1].AlarmMaxTemp = String(getValue(msgStr,4,',')).toInt();
+			curProbes[2].AlarmMinTemp = String(getValue(msgStr,5,',')).toInt();
+			curProbes[2].AlarmMaxTemp = String(getValue(msgStr,6,',')).toInt();
+			curProbes[3].AlarmMinTemp = String(getValue(msgStr,7,',')).toInt();
+			curProbes[3].AlarmMaxTemp = String(getValue(msgStr,8,',')).toInt();
 		}
 		else if (curField == "P")  //CFGP=y|{.....}*[chksum]    y is probe #  1=first pit....4=food
 		{
