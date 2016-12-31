@@ -1,0 +1,298 @@
+<html><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+    <script type="text/javascript" src="http://netdna.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+    <link href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  </head><body>
+    <div class="navbar navbar-default navbar-static-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navbar-ex-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#"><span>Q-Control BBQ Smoker</span></a>
+        </div>
+        <div class="collapse navbar-collapse" id="navbar-ex-collapse">
+          <ul class="nav navbar-nav navbar-right">
+            <li class="active">
+              <a href="#">Home</a>
+            </li>
+            <li>
+              <a href="#">Alarms</a>
+            </li>
+            <li>
+              <a href="#">Cloud<br></a>
+            </li>
+            <li>
+              <a href="config.html">Config</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="container text-right" style="height : 40px">
+      <label class="panel-label" id="curPoint">Current SetPoint</label>
+      <button id="setempbut" class="btn btn-success" data-toggle="modal" data-target="#modalTemp">Set New Pit Temp!</button>
+    </div>
+    <div class="section">
+      <div class="container" style="width : 100%;max-width : 1300px">
+        <div style="background-color: lightblue;width:100%">
+          <div id="PitGauge" class="gg"></div>
+          <div id="FanGauge" class="gf"></div>
+          <div id="FoodGauge1" class="gg"></div>
+          <div id="FoodGauge2" class="gg"></div>
+          <div id="FoodGauge3" class="gg"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal fade" id="modalTemp">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+            <h4 class="modal-title">Set New Temperature (in F)</h4>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <input class="form-control" id="SetNewTemp" placeholder="220" type="number">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <a class="btn btn-default" data-dismiss="modal">Cancel</a>
+            <a class="btn btn-primary" onclick="sendNewTemp()" data-dismiss="modal">Set PitTemp</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <style type="text/css">
+      .gg {
+                display: inline-block;
+                height: 240px;            
+            }
+            .gf {
+                display: inline-block;
+                height: 120px;            
+            }
+    </style>
+    <script>
+      function sendNewTemp(){	  
+            var xmlhttp = new XMLHttpRequest();
+            var url = "/setpoint?do=settemp"
+            nt=document.getElementById("SetNewTemp").value;	
+            if (nt>=0 & nt<1000)
+            {
+            		url += "&setpointf="+ nt;
+            		xmlhttp.open("POST", url, true);
+            		xmlhttp.send();
+            		//alert("Setting New Temp "+nt);
+            }		
+            }
+    </script>
+    <script>
+      google.charts.load('current', { packages: ['gauge', 'corechart']});
+                google.charts.setOnLoadCallback(drawVisualization);		
+        		
+        		var curSetPoint = 0;
+        		var upInterval = 3000;   //every 3 seconds
+        		
+        			
+        
+        			
+                var PitGaugeOptions = {
+                    redFrom: 600,
+                    redTo: 800,
+                    yellowFrom: 500,
+                    yellowTo: 600,
+                    majorTicks: ['0', '100', '200', '300', '400', '500', '600', '700', '800'],
+                    minorTicks: 2,
+                    max: 800
+                };
+        
+                var FoodGauge1Options = {
+                    redFrom: 210,
+                    redTo: 240,
+                    yellowFrom: 190,
+                    yellowTo: 210,
+                    majorTicks: ['100', '120', '140', '160', '180', '200', '220', '240'],
+                    minorTicks: 2,
+                    max: 240,
+                    min: 100
+                };
+        
+                var FoodGauge2Options = {
+                    redFrom: 210,
+                    redTo: 240,
+                    yellowFrom: 190,
+                    yellowTo: 210,
+                    majorTicks: ['100', '120', '140', '160', '180', '200', '220', '240'],
+                    minorTicks: 2,
+                    max: 240,
+                    min: 100
+                };
+        
+                var FoodGauge3Options = {
+                    redFrom: 210,
+                    redTo: 240,
+                    yellowFrom: 190,
+                    yellowTo: 210,
+                    majorTicks: ['100', '120', '140', '160', '180', '200', '220', '240'],
+                    minorTicks: 2,
+                    max: 240,
+                    min: 100
+                };
+        
+                var FanGaugeOptions = {
+                    redFrom: 90,
+                    redTo: 100,
+                    yellowFrom: 75,
+                    yellowTo: 90,
+                    minorTicks: 5
+                };
+        
+         
+        
+        
+        			
+        		function drawVisualization(){
+        		
+        			function hideGauge(whichID){
+        			   document.getElementById(whichID).style.display='none';
+        			   document.getElementById(whichID).style.visibility='hidden';			
+        			}
+        		    function showGauge(whichID){
+        			   document.getElementById(whichID).style.display='inline-block';
+        			   document.getElementById(whichID).style.visibility='visible';			
+        			}
+        		
+        		
+        		
+        			function displayPitGauge(point) {
+					   if (!point){hideGauge("PitGauge"); return;} else showGauge("PitGauge");	
+                        PitGaugedata.setValue(0, 0, 'PIT');
+                        PitGaugedata.setValue(0, 1, point);
+                        PitGaugeOptions['greenFrom'] = curSetPoint - 5;
+                        PitGaugeOptions['greenTo'] = curSetPoint + 5;
+                        PitGauge.draw(PitGaugedata, PitGaugeOptions);
+                    }
+        			
+        
+                    function displayFoodGauge1(point) {
+        				if (!point){hideGauge("FoodGauge1"); return;} else showGauge("FoodGauge1");			
+                        FoodGauge1data.setValue(0, 0, 'FOOD');
+                        FoodGauge1data.setValue(0, 1, point);
+                        FoodGauge1.draw(FoodGauge1data, FoodGauge1Options);
+                    }
+        
+                    function displayFoodGauge2(point) {
+        				if (!point){hideGauge("FoodGauge2"); return;} else showGauge("FoodGauge2");			
+                        FoodGauge2data.setValue(0, 0, '#2');
+                        FoodGauge2data.setValue(0, 1, point);
+                        FoodGauge2.draw(FoodGauge2data, FoodGauge2Options);
+                    }
+        
+                    function displayFoodGauge3(point) {
+        				if (!point){hideGauge("FoodGauge3"); return;} else showGauge("FoodGauge3");
+                        FoodGauge3data.setValue(0, 0, '#3');
+                        FoodGauge3data.setValue(0, 1, point);
+                        FoodGauge3.draw(FoodGauge3data, FoodGauge3Options);
+                    }
+        
+                    function displayFanGauge(point) {			
+                        FanGaugedata.setValue(0, 0, 'FAN');
+                        FanGaugedata.setValue(0, 1, point);
+                        FanGauge.draw(FanGaugedata, FanGaugeOptions);
+                    }
+        			
+        		
+        		
+        		
+        		var PitGauge = new google.visualization.Gauge(document.getElementById('PitGauge'));
+        
+                var PitGaugedata = new google.visualization.DataTable();
+                    PitGaugedata.addColumn('string', 'Label');
+                    PitGaugedata.addColumn('number', 'Value');
+                    PitGaugedata.addRows(1);
+        				
+                var FoodGauge1 = new google.visualization.Gauge(document.getElementById('FoodGauge1'));
+        
+                var FoodGauge1data = new google.visualization.DataTable();
+                    FoodGauge1data.addColumn('string', 'Label');
+                    FoodGauge1data.addColumn('number', 'Value');
+                    FoodGauge1data.addRows(1);
+        
+                var FoodGauge2 = new google.visualization.Gauge(document.getElementById('FoodGauge2'));
+        
+                var FoodGauge2data = new google.visualization.DataTable();
+                    FoodGauge2data.addColumn('string', 'Label');
+                    FoodGauge2data.addColumn('number', 'Value');
+                    FoodGauge2data.addRows(1);
+        
+                var FoodGauge3 = new google.visualization.Gauge(document.getElementById('FoodGauge3'));
+        
+                var FoodGauge3data = new google.visualization.DataTable();
+                    FoodGauge3data.addColumn('string', 'Label');
+                    FoodGauge3data.addColumn('number', 'Value');
+                    FoodGauge3data.addRows(1);
+        
+                var FanGauge = new google.visualization.Gauge(document.getElementById('FanGauge'));
+        
+                var FanGaugedata = new google.visualization.DataTable();
+                    FanGaugedata.addColumn('string', 'Label');
+                    FanGaugedata.addColumn('number', 'Value');
+                    FanGaugedata.addRows(1);
+        			
+        			            			      			      		      		      		    
+        
+        function getUpdates(){
+        var xmlhttp = new XMLHttpRequest();
+        var url = "/curinfo";
+        
+        xmlhttp.onload = function(e) {    
+            if (xmlhttp.status == 200) {	    
+                var myArr = JSON.parse(xmlhttp.responseText);		
+                updatedisplay(myArr);       
+        	   //updatedisplay(JSON.parse('{"pittemp":881.1,"food1":144,"food2":122,"food3":123,"fanavg":80,"fancur":40,"setpoint":454,"lidopen":0}'));
+            }
+        };
+        
+        xmlhttp.open("GET", url);
+        xmlhttp.send();  
+        }
+        
+        function updatedisplay(jsonData){
+        displayPitGauge(jsonData["pittemp"]);
+        displayFoodGauge1(jsonData["food1"]);
+        displayFoodGauge2(jsonData["food2"]);
+        displayFoodGauge3(jsonData["food3"]);
+        displayFanGauge(jsonData["fancur"]);
+		//document.getElementById("curPoint").html("Current SetPoint is ");
+		
+        curSetPoint=jsonData["setpoint"];
+		$('#curPoint').text("Current Setpoint (f) : " +curSetPoint+"  ");
+		
+		
+        /*
+         document.getElementById("pittemp").innerHTML="Pit Temperature "+jsonData["pittemp"] + "<hr>";
+         document.getElementById("setpoint").innerHTML="Set Point "+jsonData["setpoint"] + "<hr>";
+         if (jsonData["food1"]) document.getElementById("food1").innerHTML="Food1 > "+jsonData["food1"] + "<hr>";
+         if (jsonData["food2"]) document.getElementById("food2").innerHTML="Food2 > "+jsonData["food2"] + "<hr>";
+         if (jsonData["food3"]) document.getElementById("food3").innerHTML="Food3 > "+jsonData["food3"] + "<hr>";
+         document.getElementById("fan").innerHTML="Fan "+jsonData["fancur"] + " % <hr>";
+         if (jsonData["lid"]>0 ) document.getElementById("lid").innerHTML="Lid Open "+jsonData["lidopen"] + "<hr>";
+        */
+        }
+        
+        getUpdates();
+        setInterval(getUpdates, upInterval);
+        		
+        }
+    </script>
+
+
+</body></html>
