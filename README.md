@@ -25,20 +25,26 @@ Two parts to this project:
 
 The two device interact via a simple serial tx/rx connection.  The Espress Module firware can be updated via OTA(wifi) and in some cases the Espress Module can also flash the AVR.
 
-The Q-Control PID controller:
+#The Q-Control PID controller:
 
 The code should be straightfoward to understand:  
 
 Simple Objects Interaction/Definition
 
-Main Controller Object:  qController.h/cpp
+#Main Controller Object:  qController.h/cpp
 
  QControllerClass		curQ;  //Main Controller
+ 
  QLinkClass			curLink;  //Link to external esp8266 for web/cloud usually serial
+ 
  QFanClass			curFan;   //Fan controller and Servo controller
+ 
  QPIDClass			curPID;   //PID object that will calculate what FAN output should be.
+ 
  QProbeClass			curProbes[MaxProbes];  //Probes objects, gets temperature support ADC, max6675..etc.
+ 
  QGUIClass			QGUI;     //GUI menu/led/lcd headless for now, does nothing...  
+ 
 
 .run method is called on most objects (loop) method.  
 
