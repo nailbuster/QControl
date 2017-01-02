@@ -28,6 +28,17 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #define comdelay 10  //serial comdelay
 //#define AVR_COM_BAUDRATE 57600
+#define MAX_PROBES 4
+
+
+
+struct ProbesStruct {
+	String Name;
+	int AlarmLo, AlarmHi;
+	int curTemp;
+};
+
+
 
 class GlobalsClass
 {
@@ -47,6 +58,9 @@ public:
 		 avrFan,
 		 avrFanMovAvg,
 		 avrLidOpenCountdown;
+
+ ProbesStruct Probes[MAX_PROBES];
+
  int ResetAlarmSeconds = 10;  //number of seconds before we reset alarm....0 = means never....
  unsigned long ResetTimeCheck = 0; 
  GlobalsClass();
@@ -60,8 +74,11 @@ public:
  void checkSerialMsg();
  void ResetAlarms();
  void loadSetup();
+ void loadProbes();
+ void SaveProbes();
  void ConfigAlarms(String msgStr);
  String getValue(String data, int index, char separator = ',');
+ String getAlarmsJson(); 
 };
 
 extern GlobalsClass avrGlobal;

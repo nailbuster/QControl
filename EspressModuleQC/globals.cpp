@@ -222,7 +222,7 @@ void sendHMJsonweb() {
 }
 
 
-void  setHMweb() {	    ///hm/set?do=settemp&setpointf=225
+void  setAVRweb() {	    ///hm/set?do=settemp&setpointf=225
 	bool isOK = false;
 	if (!MyWebServer.isAuthorized()) return;
 	if (server.arg("do") == "settemp") {
@@ -245,7 +245,30 @@ void  setHMweb() {	    ///hm/set?do=settemp&setpointf=225
 			}
 		}
 	}
-	if (!isOK) { server.send(200, "text/html", "invalid request"); }
+	if (!isOK) { server.send(500, "text/html", "invalid request"); }
+}
+
+void  getAVRweb() {	    ///hm/set?do=settemp&setpointf=225
+	bool isOK = false;
+	if (!MyWebServer.isAuthorized()) return;
+/*	if (server.arg("do") == "settemp") {
+		if (server.arg("setpointf") != "") {
+			int nt = String(server.arg("setpointf")).toInt();
+			if (nt > 0) {
+				avrGlobal.SetTemp(nt);
+				server.send(200, "text/html", "Temp Set to : " + String(nt));
+				isOK = true;
+			}
+		}
+	} */
+	if (server.arg("do") == "getalarm") {    //hm/set?do=setalarm&alarms=10,10,20,20,30,30,40,40
+			String al = avrGlobal.getAlarmsJson();
+			if (al.length() > 0) {	
+				server.send(200, "application/json", al);
+				isOK = true;
+			}		
+	}
+	if (!isOK) { server.send(500, "text/html", "invalid request"); }
 }
 
 /*
@@ -313,6 +336,13 @@ GlobalsClass::GlobalsClass()
 	avrFanMovAvg = "0";
 	avrLidOpenCountdown = "0";
 
+	for (int fx = 0; fx < MAX_PROBES; fx++) {
+		Probes[fx].AlarmHi=-10;
+		Probes[fx].AlarmLo=-10;
+		Probes[fx].Name = "Probe " + String(fx + 1);
+		Probes[fx].curTemp = 999;
+	}
+
 
 }
 
@@ -358,9 +388,11 @@ void  GlobalsClass::begin()
     //MyWebServer.CurServer->on("/test", TestCallback);
 	server.on("/flashavr", FlashHM);
 	server.on("/curinfo", sendHMJsonweb);
-	server.on("/setpoint", setHMweb);
+	server.on("/setpoint", setAVRweb);
 	server.on("/testgz", testgz);
 	server.on("/stopavr", stopAVR);
+	server.on("/setavr", setAVRweb);
+	server.on("/getavr", getAVRweb);
 //	server.on("/thingcreate", createThingSpeakChannel); do it in javascript now....
 	
 	loadSetup(); //load from spiffs
@@ -547,7 +579,7 @@ void GlobalsClass::SendProbesToAVR(String fname) {   //sends Probes info to HM
 			
 	//	qCon.println("debug");
 	}  //open file success
-
+	loadProbes(); //reload probe structs in memory
 }
 
 
@@ -626,6 +658,37 @@ String GlobalsClass::getValue(String data, int index, char separator) {
 	}
 	//return text if this is the last part
 	return dataPart;
+}
+
+String GlobalsClass::getAlarmsJson()
+{
+	StaticJsonBuffer<500> jsonBuffer;
+
+	JsonObject& root = jsonBuffer.createObject();
+	//root["Info"] = "Alarms";
+	//root["time"] = 1351824120;
+
+	JsonArray& pNames = root.createNestedArray("ProbeNames");
+	//data.add(48.756080, 6);  // 6 is the number of decimals to print
+	//data.add(2.302038, 6);   // if not specified, 2 digits are printed
+	for (int fx=0; fx < MAX_PROBES;fx++)	{
+		pNames.add(Probes[fx].Name);
+	}
+
+	JsonArray& pLo = root.createNestedArray("ProbeAlarmsLo");
+	for (int fx=0; fx < MAX_PROBES; fx++)	{
+		pLo.add(Probes[fx].AlarmLo);
+	}
+
+
+	JsonArray& pHi = root.createNestedArray("ProbeAlarmsHi");
+	for (int fx=0; fx < MAX_PROBES; fx++)	{
+		pHi.add(Probes[fx].AlarmHi);
+	}
+
+	String str;
+	root.printTo(str);
+	return str;
 }
 
 
@@ -767,14 +830,92 @@ void GlobalsClass::loadSetup()
 			//if (String(root["tbstatus"].asString()).toInt() == 1) TalkBackEnabled = true; else TalkBackEnabled = false;
 			DebugPrintln("Esp Settings Loaded...");
 		}
+	} //file exists;       
+
+	loadProbes();  //on startup load probes
+}
+
+void GlobalsClass::loadProbes()
+{
+	String values = "";		
+	File f = SPIFFS.open("/heatprobes.json", "r");
+	if (!f) {
+		DebugPrintln("probes config not found");
+	}
+	else {  //file exists;
+		values = f.readStringUntil('\n');  //read json        		
+		f.close();
+
+		DynamicJsonBuffer jsonBuffer;
+
+		JsonObject& root = jsonBuffer.parseObject(values);  //parse weburl
+		if (!root.success())
+		{
+			DebugPrintln("parseObject() probefile failed");
+			return;
+		}
+		for (int fx = 0; fx < 4; fx++) {
+			String cP = "p" + String(fx);  //curProbe#			
+			Probes[fx].Name = root[cP + "name"].asString();
+			Probes[fx].AlarmLo = String(root[cP + "all"].asString()).toInt();
+			Probes[fx].AlarmHi = String(root[cP + "alh"].asString()).toInt();
+		}  //for each probe
 	} //file exists;        
 }
+
+void GlobalsClass::SaveProbes()
+{  //used when we change probenames and alarms from GUI
+	String values = "";
+	String fname = "/heatprobes.json";
+	File f = SPIFFS.open(fname, "r");	
+	if (!f) {
+		DebugPrintln("probes config not found");
+	}
+	else {  //file exists;
+		values = f.readStringUntil('\n');  //read json        		
+		f.close();
+
+		DynamicJsonBuffer jsonBuffer;
+
+		JsonObject& root = jsonBuffer.parseObject(values);  //parse weburl
+		if (!root.success())
+		{
+			DebugPrintln("parseObject() probefile failed");
+			return;
+		}
+		for (int fx = 0; fx < 4; fx++) {
+			String cP = "p" + String(fx);  //curProbe#			
+			root[cP + "name"] = Probes[fx].Name;
+			root[cP + "all"] = Probes[fx].AlarmLo;
+			root[cP + "alh"] = Probes[fx].AlarmHi;
+		}  //for each probe
+
+		//create file and save; 
+		String newvalues;
+		root.printTo(newvalues);
+		File file = SPIFFS.open(fname, "w");
+		if (file) {
+			file.println(newvalues);  //save json data
+			file.close();
+		}
+	} //file exists;        
+}
+
+
+
+
+
 
 void  GlobalsClass::ConfigAlarms(String msgStr)
 {   //format is $ALARM,10,20,30,40,50,60,70,80   (lo/hi pairs);  send to comport;
 	msgStr.replace("$ALARM,", "");  //remove the alarm command and send rest to HM
-	SendStringToAVR(qMakeMsg("SA|" + msgStr));   //send ProbeInfo to avr
-	
+	SendStringToAVR(qMakeMsg("SA|" + msgStr));   //send ProbeInfo to avr	
+	int fy = 0;
+	for (int fx = 0; fx < MAX_PROBES; fx++) {
+		Probes[fx].AlarmLo = String(getValue(msgStr, fy)).toInt(); fy++;
+		Probes[fx].AlarmHi = String(getValue(msgStr, fy)).toInt(); fy++;
+	}
+	SaveProbes();//save to file
 //	qCon.println("/set?al="+msgStr); delay(comdelay);
 	DebugPrintln("setting new alarms " + msgStr);
 //	qCon.println("/set?tt=Web Alarms,Updated.."); delay(comdelay);
