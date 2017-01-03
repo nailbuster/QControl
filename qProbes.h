@@ -36,7 +36,7 @@ class QProbeClass
 {
  protected:
 	 float analogReadFilter();
-	 int ProbeType = 0;  //0=analog  1=max6675	99=No hardware (different than disconnected)
+	 int ProbeType = 0;  //0=none  1=adc 2 = max6675	
 	 char ProbeName[15];
 
 	 float COA = 2.3067434E-4, COB = 2.3696596E-4, COC = 1.2636414E-7;
