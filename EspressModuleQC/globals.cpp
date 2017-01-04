@@ -27,7 +27,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <ArduinoJson.h> 
 #include <myAVRFlash.h>
 #include <htmlEmbed.h>
-#include <stdarg.h>
+//#include <stdarg.h>
 
 
 GlobalsClass avrGlobal;
@@ -422,6 +422,8 @@ void  GlobalsClass::begin()
 		qCon.println("/set?tt=WiFi Connected,"+ (String)WiFi.localIP()[0] + "." + (String)WiFi.localIP()[1] + "." + (String)WiFi.localIP()[2] + "." + (String)WiFi.localIP()[3]);
 	} else qCon.println("/set?tt=WiFi NOT, Connected!!"); 
 	
+
+	lastTimerChk = millis() - (updateInterval * 1000) - 100; //force timer...
 }
 
 
@@ -625,6 +627,12 @@ void GlobalsClass::SendStringToAVR(const String& msgStr)
 void GlobalsClass::handle()
 {
 	if (qCon.available() > 0) checkSerialMsg();
+
+	if (millis() - lastTimerChk >= updateInterval * 1000)  //POLL AVR FOR INFO;
+	{
+		lastTimerChk = millis();
+		if (MyWebServer.OTAisflashing == false && MyWebServer.isDownloading == false) qCon.println("INFO");  //only send when not in programming eeprom mode.		
+	}
 
 	//alarm time checking
 	if (ResetTimeCheck > 0) {

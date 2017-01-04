@@ -62,7 +62,8 @@ public:
  ProbesStruct Probes[MAX_PROBES];
 
  int ResetAlarmSeconds = 10;  //number of seconds before we reset alarm....0 = means never....
- unsigned long ResetTimeCheck = 0; 
+ byte updateInterval = 3;  //interval to poll AVR.
+ unsigned long ResetTimeCheck, lastTimerChk;
  GlobalsClass();
  void SetTemp(int sndTemp);
  void begin();

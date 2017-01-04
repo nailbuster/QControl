@@ -58,19 +58,22 @@ void QLinkClass::run()
 	{
 		//char sr = char(Serial.read());		
 		//if (sr != '\n') msgStr += sr;  else checkSerialMsg();
-		msgStr = Serial.readStringUntil('\n');
-		checkSerialMsg();
+		msgStr = Serial.readStringUntil('\n');		
+		if (msgStr.indexOf("INFO") == 0) {   //check if its a get "INFO" message
+			if (inProgMode == false) updateInfoEsp();  //only send when not in programming eeprom mode.
+			msgStr == "";
+		} else checkSerialMsg();
 	}
 		
 		
 	//	checkSerialMsg();  //check for messages from esp....
 
-	if (millis() - lastTimerChk >= updateInterval * 1000)
+/*	if (millis() - lastTimerChk >= updateInterval * 1000)
 	{
 		lastTimerChk = millis();
 		if (inProgMode==false) updateInfoEsp();  //only send when not in programming eeprom mode.
 	}
-
+*/
 }
 
 
