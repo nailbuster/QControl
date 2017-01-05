@@ -56,6 +56,7 @@ class QProbeClass
 	int AlarmMaxTemp, AlarmMinTemp;
 	bool AlarmActiveMax = false;
 	bool AlarmActiveMin = false;
+	void CheckAlarm();
 
 	float runningAvg=-1;
 

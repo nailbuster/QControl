@@ -190,6 +190,7 @@ void QControllerClass::Run()
 		for (int fx = 0; fx < MaxProbes; fx++)  //go through each probe and grab current temps in F
 		{
 			curProbes[fx].ReadTemperature();			
+			if (LidOpened == false && targetReached) curProbes[fx].CheckAlarm();
 		}     //read all probes temperatures
 		
 
@@ -219,6 +220,7 @@ void QControllerClass::Run()
 
 		if (abs(setpoint - pit_temp) <= 10) {   //target is reached within XX degrees of setpoint?
 			targetReached = true;
+			preHeat = false;
 		}
 
 		// else targetReached = false; //for alarms and such.....
@@ -243,7 +245,7 @@ void QControllerClass::Run()
 		LidOpenCountdown = lidOpenTime;  //seconds to countdown		
 		}
 
-		CheckAlarms();  
+		  
 
 	}  //main interval loop
 
@@ -299,7 +301,7 @@ void QControllerClass::SetValuesJson(const String& msgStr)
 
 void QControllerClass::CheckAlarms()
 
-{
+{/* changed to method on probe
 	int alarmBuf = 10;  //degrees to reset alarm hi/lo (so we don't repeat alarms when very close swings)
 
 	//Check High Alarms;
@@ -312,7 +314,7 @@ void QControllerClass::CheckAlarms()
 
 	for (int fx = 0; fx < MaxProbes; fx++)  //go through each probe and check for alarm hi
 	{
-		if (curProbes[fx].curTemp > curProbes[fx].AlarmMaxTemp & curProbes[fx].AlarmMaxTemp > 0)
+		if (curProbes[fx].curTemp > curProbes[fx].AlarmMaxTemp && curProbes[fx].AlarmMaxTemp > 0 && curProbes[fx].isConnected)
 		{
 			if (curProbes[fx].AlarmActiveMax == false)  //new alarm
 			{
@@ -328,7 +330,7 @@ void QControllerClass::CheckAlarms()
    //Check Low Alarms;
 		for (int fx = 0; fx < MaxProbes; fx++)  //go through each probe and check for alarm lo
 		{			
-			if (curProbes[fx].curTemp < curProbes[fx].AlarmMinTemp & curProbes[fx].AlarmMinTemp > 0)
+			if (curProbes[fx].curTemp < curProbes[fx].AlarmMinTemp && curProbes[fx].AlarmMinTemp > 0 && curProbes[fx].isConnected)
 			{
 				if (curProbes[fx].AlarmActiveMin == false)  //new alarm
 				{
@@ -340,7 +342,7 @@ void QControllerClass::CheckAlarms()
 			}
 			else if (curProbes[fx].curTemp > (curProbes[fx].AlarmMinTemp + alarmBuf)) { curProbes[fx].AlarmActiveMin = false; } //reset alarm if target reached
 		}
-
+*/
 }
 
 void QControllerClass::LinkSetTemp(int NewTemp)   //when setpoint is changed

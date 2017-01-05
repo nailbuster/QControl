@@ -114,6 +114,45 @@ void QProbeClass::begin()  //initialization
 }
 
 
+
+
+void QProbeClass::CheckAlarm()
+{
+	int alarmBuf = 10;  //degrees f to reset alarm hi/lo (so we don't repeat alarms when very close swings)
+	if (isConnected == false) return;
+
+	//check HI Alarm
+	if (curTemp > AlarmMaxTemp && AlarmMaxTemp>0)
+	{
+		if (AlarmActiveMax == false)  //new alarm
+		{
+			//fire alarm high!
+			curLink.SendAlarm(ProbeName, "High", AlarmMaxTemp, curTemp);
+			AlarmActiveMax = true;
+		}
+	}
+	else if (curTemp < (AlarmMaxTemp - alarmBuf)) { AlarmActiveMax = false; } //reset alarm if target reached
+
+																			  //check Low Alarm
+
+	if (curTemp < AlarmMinTemp && AlarmMinTemp > 0)
+	{
+		if (AlarmActiveMin == false)  //new alarm
+		{
+			//fire alarm low!
+			curLink.SendAlarm(ProbeName, "Low", AlarmMinTemp, curTemp);
+			AlarmActiveMin = true;
+		}
+
+	}
+	else if (curTemp > (AlarmMinTemp + alarmBuf)) { AlarmActiveMin = false; } //reset alarm if target reached
+
+
+
+}
+
+
+
 void QProbeClass::AsJson(char *jData)
 {
 	char coa[15], cob[15], coc[15];

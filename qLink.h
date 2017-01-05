@@ -45,7 +45,7 @@ class QLinkClass
 	 bool inProgMode = false;  //are we updating eeprom values?
 	 void begin();
 	 void run();			   //called in main loop
-	 void SendAlarm(int ProbNum, String AlarmType, int AlarmCheckTemp, int CurTemp);
+	 void SendAlarm(char * ProbName, String AlarmType, int AlarmCheckTemp, int CurTemp);
 };
 
 

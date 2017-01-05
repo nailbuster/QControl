@@ -183,16 +183,17 @@ void QLinkClass::checkSerialMsg()   //Process Serial MSG from device.....
 			msgStr.remove(0, curPart.length() + 1);  //remove msg type from msg data
 			curQ.SetValuesJson(msgStr);			
 		}
-		else if (curField == "SA")   // SETALRM|1L,1H,2L,2H,3L,3H,4L,4H*xx
-		{									
-			curProbes[0].AlarmMinTemp = String(getValue(msgStr,1,',')).toInt();
-			curProbes[0].AlarmMaxTemp = String(getValue(msgStr,2,',')).toInt();
-			curProbes[1].AlarmMinTemp = String(getValue(msgStr,3,',')).toInt();
-			curProbes[1].AlarmMaxTemp = String(getValue(msgStr,4,',')).toInt();
-			curProbes[2].AlarmMinTemp = String(getValue(msgStr,5,',')).toInt();
-			curProbes[2].AlarmMaxTemp = String(getValue(msgStr,6,',')).toInt();
-			curProbes[3].AlarmMinTemp = String(getValue(msgStr,7,',')).toInt();
-			curProbes[3].AlarmMaxTemp = String(getValue(msgStr,8,',')).toInt();
+		else if (curField == "SA")   // SA|1L,1H,2L,2H,3L,3H,4L,4H*xx
+		{
+			msgStr.remove(0, curPart.length() + 1);  //remove msg type from msg data					
+			curProbes[0].AlarmMinTemp = String(getValue(msgStr,0,',')).toInt();
+			curProbes[0].AlarmMaxTemp = String(getValue(msgStr,1,',')).toInt();
+			curProbes[1].AlarmMinTemp = String(getValue(msgStr,2,',')).toInt();
+			curProbes[1].AlarmMaxTemp = String(getValue(msgStr,3,',')).toInt();
+			curProbes[2].AlarmMinTemp = String(getValue(msgStr,4,',')).toInt();
+			curProbes[2].AlarmMaxTemp = String(getValue(msgStr,5,',')).toInt();
+			curProbes[3].AlarmMinTemp = String(getValue(msgStr,6,',')).toInt();
+			curProbes[3].AlarmMaxTemp = String(getValue(msgStr,7,',')).toInt();			
 		}
 		else if (curField == "P")  //CFGP=y|{.....}*[chksum]    y is probe #  1=first pit....4=food
 		{
@@ -234,12 +235,12 @@ void QLinkClass::updateInfoEsp()
 
 
 
-void QLinkClass::SendAlarm(int ProbNum, String AlarmType, int AlarmCheckTemp, int CurTemp)
+void QLinkClass::SendAlarm(char * ProbName, String AlarmType, int AlarmCheckTemp, int CurTemp)
 //QControl  $QCAL, 1, Low, CheckTemp, CurTemp($QCAL, probe number, Low or High, alarmtemp, curtemp)
 {
 	char eData[200];
 	Serial.flush();
-	fBuf(eData, 200, F("$QCAL,%i,%s,%i,%i,"), ProbNum,AlarmType.c_str(),AlarmCheckTemp,CurTemp);
+	fBuf(eData, 200, F("$QCAL,%s,%s,%i,%i,"), ProbName,AlarmType.c_str(),AlarmCheckTemp,CurTemp);
 	char cs = '\0'; //chksum
 	for (int fx = 1; fx < String(eData).length(); fx++)
 	{
