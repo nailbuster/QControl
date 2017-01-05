@@ -366,7 +366,6 @@ void testgz() {
 //	server.sendHeader("Content-Encoding", "gzip");
 //	server.send_P(200, "text/html", wifisetup_html_gz, sizeof(wifisetup_html_gz));
 //	FileSaveContent_P("/testconfig.html.gz", wifisetup_html_gz, sizeof(wifisetup_html_gz),false);
-  
 }
 
 void stopAVR()
@@ -378,7 +377,11 @@ void stopAVR()
 }
 
 
+void getAVRDebug() {  //get debug info from avr on serial
 
+	qCon.println("debug");
+	server.send(200, "text/html", "Debug info on serial...");
+}
 
 
 void  GlobalsClass::begin()
@@ -393,6 +396,7 @@ void  GlobalsClass::begin()
 	server.on("/stopavr", stopAVR);
 	server.on("/setavr", setAVRweb);
 	server.on("/getavr", getAVRweb);
+	server.on("/debug", getAVRDebug);
 //	server.on("/thingcreate", createThingSpeakChannel); do it in javascript now....
 	
 	loadSetup(); //load from spiffs
@@ -550,6 +554,7 @@ void GlobalsClass::SendProbesToAVR(String fname) {   //sends Probes info to HM
 			
 			sprintf(jData, "pn:\"%s\"",    //names
 				root[cP+"name"].asString());
+			Probes[fx].Name = root[cP + "name"].asString();
 
 			SendStringToAVR(qMakeMsg("P=" + String(fx + 1) + "|" + String(jData)));   //names
 
@@ -747,7 +752,7 @@ void  GlobalsClass::checkSerialMsg()
 		avrFanMovAvg = getValue(msgStr, 7); //if (hmFanMovAvg == "U") hmFanMovAvg = "0";
 		avrLidOpenCountdown = getValue(msgStr, 8);//	if (hmLidOpenCountdown == "U") hmLidOpenCountdown = "0";
 	}
-	else if ((getValue(msgStr, 0) == "$HMAL")) //Alarm is firing....HM weirdo message
+	else if ((getValue(msgStr, 0) == "$HMAL")) //Alarm is firing...
 	{
 		if (validatechksum(msgStr) == false) return;
 		String AlarmInfo;
@@ -784,7 +789,7 @@ void  GlobalsClass::checkSerialMsg()
 		MQTTLink.SendAlarm(AlarmInfo);
 		ThingSpeak.SendAlarm(AlarmInfo);		
 		}		
-	} else  if ((getValue(msgStr, 0) == "$QCAL")) //Alarm was fired (one time)....QControl  $QCAL,1,Low,CheckTemp,CurTemp     ($QCAL, probe number, Low or High, alarmtemp, curtemp)
+	} else  if ((getValue(msgStr, 0) == "$QCAL")) //Alarm was fired (one time)....QControl  $QCAL,PitName1,Low,CheckTemp,CurTemp     ($QCAL, probe Name, Low or High, alarmtemp, curtemp)
 	{
 		if (validatechksum(msgStr) == false) return;
 		String AlarmInfo;
@@ -864,7 +869,7 @@ void GlobalsClass::loadProbes()
 		}
 		for (int fx = 0; fx < 4; fx++) {
 			String cP = "p" + String(fx);  //curProbe#			
-			Probes[fx].Name = root[cP + "name"].asString();
+			Probes[fx].Name = root[cP + "name"].asString();		
 			Probes[fx].AlarmLo = String(root[cP + "all"].asString()).toInt();
 			Probes[fx].AlarmHi = String(root[cP + "alh"].asString()).toInt();
 		}  //for each probe
@@ -906,7 +911,7 @@ void GlobalsClass::SaveProbes()
 			file.println(newvalues);  //save json data
 			file.close();
 		}
-	} //file exists;        
+	} //file exists;        	
 }
 
 
