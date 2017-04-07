@@ -19,12 +19,14 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "ThingSpeak.h"
 #include "globals.h"
-#include <myWebServer.h>
+#include <myWebServerAsync.h>
 #include <ArduinoJson.h> 
 #include <FS.h>
 #include <ESP8266WiFi.h>
-#include <WiFiClient.h>
-#include <ESP8266HTTPClient.h>
+#include "ESPAsyncTCP.h"
+#include "SyncClient.h"
+#include "ESP8266HTTPClient.h"
+
 
 
 
@@ -129,6 +131,35 @@ String ThingSpeakClass::getThingSpeak(String talkBackID, String talkApiKey)   //
 	if (WiFi.status() != WL_CONNECTED) return "";   //check to make sure we are connected...
 
 	String url = "/talkbacks/" + talkBackID + "/commands/execute?api_key=" + talkApiKey;
+
+/*  //todo sync client WIP	
+	SyncClient client;
+	String SrvURL = thingSpeakURL;
+	String GetST = "GET " + url + " HTTP/1.1\r\nHost: " + thingSpeakURL + "\r\nConnection: close\r\n\r\n";
+	if (!client.connect(SrvURL.c_str(), 80)) {
+		DebugPrintln("Connect Failed");
+		return "";
+	}
+	client.setTimeout(2);
+	if (client.printf(GetST.c_str()) > 0) {
+		while (client.connected() && client.available() == 0) {
+			delay(1);
+		}
+		while (client.available()) {
+			//CommandString+=client.read();
+			Serial.write(client.read());
+		}
+		if (client.connected()) {
+			client.stop();
+		}
+	}
+	else {
+		client.stop();
+		DebugPrintln("Send Failed");
+		while (client.connected()) delay(0);
+	}
+
+*/
 	
 	HTTPClient http;	
 
@@ -183,12 +214,45 @@ void ThingSpeakClass::SendThingSpeakValues()
 
 	if (inAlarm)  //if alarm was triggered we send on next msg
 	{
-		postStr += "&status=" + MyWebServer.urlencode(MyWebServer.CurTimeString() + " " + AlarmInfo);
+		postStr += "&status=" + WebServer.urlencode(WebServer.CurTimeString() + " " + AlarmInfo);
 		AlarmInfo = "";
 		inAlarm = false;
 	}
 
-		
+/* TODO SYNC CLIENT	
+	String SrvURL = thingSpeakURL;
+	SyncClient client;
+	if (!client.connect(SrvURL.c_str(), 80)) {
+		DebugPrintln("Connect Failed");
+		return;
+	}
+	client.setTimeout(2);
+	String OutST = "POST /update HTTP/1.1\r\n" +
+		String("Host: ") + String(thingSpeakURL) + "\r\n" +
+		"Cache-Control: no-cache\r\n" +
+		"Content-Type: application/x-www-form-urlencoded\r\n" +
+		"Content-Length: " + String(postStr.length()) + "\r\n\r\n" +
+		postStr + "\r\n";		  	 
+	 if (client.printf(OutST.c_str()) > 0) {
+		while (client.connected() && client.available() == 0) {
+			delay(1);
+		}
+		while (client.available()) {
+			//CommandString += client.read();
+			Serial.write(client.read());
+		}
+		if (client.connected()) {
+			client.stop();
+		}
+	}
+	else {
+		client.stop();
+		DebugPrintln("Send Failed");
+		while (client.connected()) delay(0);
+	}
+*/
+
+	
 		HTTPClient http;
 		
 		DebugPrintln("http://" + thingSpeakURL + "/update");
@@ -204,7 +268,7 @@ void ThingSpeakClass::SendThingSpeakValues()
 		else {
 			DebugPrintln("[HTTP] POST... failed, error: " + http.errorToString(httpCode));
 		}
-		http.end();
+		http.end(); 
 		
 		
 	DebugPrintln("sending thingspeak stuffs");

@@ -1,10 +1,9 @@
 <html><head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
-        <script type="text/javascript" src="http://netdna.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
-        <link href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" crossorigin="anonymous">
+    <script type="text/javascript" src="/jquery.min.js"></script>
+    <script type="text/javascript" src="/bootstrap.min.js"></script>    
+    <link rel="stylesheet" href="/bootstrap.min.css">  
     </head><body>
         <div class="navbar navbar-default navbar-static-top">
             <div class="container">
@@ -137,17 +136,10 @@
 </div>			
 
   <script>
-      var xmlhttp = new XMLHttpRequest();
-            var url = "/jsonload?f=espgen.json";
             
-            xmlhttp.onreadystatechange = function() {
-                if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-                    var myArr = JSON.parse(xmlhttp.responseText);
-                    myFunction(myArr);
-                }
-            };
-            xmlhttp.open("GET", url, true);
-            xmlhttp.send();
+            $.get( "/jsonload?f=espgen.json", function( data ) {  																			          
+                    myFunction(data);                                                                            
+			});
             
             function myFunction(jsonData) {  //process the json from the ESP
             
@@ -203,11 +195,7 @@
                                 }//not input or select so do nothing...                       
                                } //for loop
                         //alert(   JSON.stringify(data));    
-                        var xhttp = new XMLHttpRequest();       
-                        xhttp.open("POST", "/jsonsave?f=espgen.json", false);
-                        xhttp.setRequestHeader("Content-type","application/json");//"application/x-www-form-urlencoded");  //
-                        //xhttp.send("JSON=" + JSON.stringify(data));  
-                        xhttp.send(JSON.stringify(data));  
+						$.post( "/jsonsave?f=espgen.json&js="+JSON.stringify(data));	
                         }
     </script>
 	

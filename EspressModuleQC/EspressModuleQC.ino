@@ -16,6 +16,9 @@ License along with this library; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+#include "qcExtras.h"
+#include "CookClass.h"
+#include "LogDataClass.h"
 #include "MQTTLink.h"
 #include <mySoftwareSerial.h>
 #include <TimeLib.h>
@@ -24,12 +27,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266HTTPClient.h>
-#include <ESP8266WebServer.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 #include <ESP8266mDNS.h>
 #include <DNSServer.h>
 #include <FS.h>
 #include <ArduinoJson.h> 
-#include <myWebServer.h>
+#include <myWebServerAsync.h>
 #include <PubSubClient.h>
 #include <ESP8266HTTPUpdateServer.h>
 #include <myAVRFlash.h>
@@ -42,7 +46,7 @@ void setup() {
 	//Serial.begin(115200);
 	Serial.println("starting ESP");
 
-	MyWebServer.begin();
+	WebServer.begin();
 	ThingSpeak.begin();
 	MQTTLink.begin();
 	avrGlobal.begin();
@@ -51,8 +55,8 @@ void setup() {
 
 void loop() {
 	
-	MyWebServer.handle();
-	if (MyWebServer.OTAisflashing==false  && MyWebServer.isDownloading==false)  //don't do anything during flashing OTA/downloading
+	WebServer.handle();
+	if (WebServer.OTAisflashing==false  && WebServer.isDownloading==false)  //don't do anything during flashing OTA/downloading
 	{
 		ThingSpeak.handle();
 		MQTTLink.handle();

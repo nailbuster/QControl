@@ -17,20 +17,28 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include "globals.h"
-#include <myWebServer.h>
+#include <myWebServerAsync.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
-#include <ESP8266WebServer.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 #include "ThingSpeak.h"
 #include "MQTTLink.h"
 #include <FS.h>
 #include <ArduinoJson.h> 
 #include <myAVRFlash.h>
-#include <htmlEmbed.h>
+#include <htmlEmbedBig.h>
+#include <TimeLib.h>
+#include "LogDataClass.h"
+#include "qcExtras.h"
 //#include <stdarg.h>
 
 
+#ifdef HEATERMETER
+HMGlobalClass avrGlobal;
+#else
 GlobalsClass avrGlobal;
+#endif
 
 
 #define SoftSerial   //define if using Software serial on 10,11; 
@@ -50,148 +58,22 @@ HardwareSerial &qCon = Serial;   //we use espSerial to communicate to blynk thro
 
 
 
-unsigned long ipow10(unsigned power)
-{
-	const unsigned base = 10;
-	unsigned long retval = 1;
-
-	for (int i = 0; i < power; i++) {
-		retval *= base;
-	}
-	return retval;
-}
 
 
-char *float2s(float f, char buf[], unsigned int digits)
-{
-	// Buffer to build string representation
-	int index = 0;       // Position in buf to copy stuff to
-
-						 // For debugging: Uncomment the following line to see what the
-						 // function is working on.
-						 //Serial.print("In float2s: bytes of f are: ");printBytes(f);
-
-						 // Handle the sign here:
-	if (f < 0.0) {
-		buf[index++] = '-';
-		f = -f;
-	}
-	// From here on, it's magnitude
-
-	// Handle infinities 
-	if (isinf(f)) {
-		strcpy(buf + index, "INF");
-		return buf;
-	}
-
-	// Handle NaNs
-	if (isnan(f)) {
-		strcpy(buf + index, "NAN");
-		return buf;
-	}
-
-	//
-	// Handle numbers.
-	//
-
-	// Six or seven significant decimal digits will have no more than
-	// six digits after the decimal point.
-	//
-	if (digits > 6) {
-		digits = 6;
-	}
-
-	// "Normalize" into integer part and fractional part
-	int exponent = 0;
-	if (f >= 10) {
-		while (f >= 10) {
-			f /= 10;
-			++exponent;
-		}
-	}
-	else if ((f > 0) && (f < 1)) {
-		while (f < 1) {
-			f *= 10;
-			--exponent;
-		}
-	}
-
-	//
-	// Now add 0.5 in to the least significant digit that will
-	// be printed.
-
-	//float rounder = 0.5/pow(10, digits);
-	// Use special power-of-integer function instead of the
-	// floating point library function.
-	float rounder = 0.5 / ipow10(digits);
-	f += rounder;
-
-	//
-	// Get the whole number part and the fractional part into integer
-	// data variables.
-	//
-	unsigned intpart = (unsigned)f;
-	unsigned long fracpart = (unsigned long)((f - intpart) * 1.0e7);
-
-	//
-	// Divide by a power of 10 that zeros out the lower digits
-	// so that the "%0.lu" format will give exactly the required number
-	// of digits.
-	//
-	fracpart /= ipow10(6 - digits + 1);
-
-	//
-	// Create the format string and use it with sprintf to form
-	// the print string.
-	//
-	char format[16];
-	// If digits > 0, print
-	//    int part decimal point fraction part and exponent.
-
-	if (digits) {
-
-		sprintf(format, "%%u.%%0%dlue%%+d", digits);
-		//
-		// To make sure the format is what it is supposed to be, uncomment
-		// the following line.
-		//Serial.print("format: ");Serial.println(format);
-		sprintf(buf + index, format, intpart, fracpart, exponent);
-	}
-	else { // digits == 0; just print the intpart and the exponent
-		sprintf(format, "%%ue%%+d");
-		sprintf(buf + index, format, intpart, exponent);
-	}
-
-	return buf;
-}
-
-
-
-
-
-
-void  FlashHM() {  //server request to flash avr file to HM...file exists on spiffs	
-	if (!MyWebServer.isAuthorized()) return;
-
-	String fname = "";	
-	if (server.hasArg("fname")) { fname=server.arg("fname"); }
-
-	if (fname == "") return server.send(200, "text/html", "Flashing File NOT FOUND");;
-	DebugPrintln("FLashing :" + server.arg("fname"));
-	MyWebServer.OTAisflashing = true;	
+void FlashHMAsync() {
+	WebServer.OTAisflashing = true;
 	//delay(200);
 #ifdef SoftSerial
 	qCon.enableRx(true);
 #endif
-	qCon.flush();	
-//	delay(10);
+	qCon.flush();
+	//	delay(10);
 	//qCon.begin(115200);  //HM speed for flashing with optiboot	
 	qCon.begin(Esp8266AVRFlash.AVR_BAUDRATE);
-	
+
 	//Esp8266avrFlash.avr_PAGESIZE = 256;
-	Esp8266AVRFlash.FlashAVR(&qCon, "/"+fname);  //flashavr HM
-	qCon.flush();  	
-	server.send(200, "text/html", "Flashing avr....please wait...will auto-reboot...do NOT touch system!!!");
+	Esp8266AVRFlash.FlashAVR(&qCon, "/" + avrGlobal.FlashHMFileAsync);  //flashavr HM
+	qCon.flush();
 	delay(2000);
 	ESP.restart(); //restart ESP after reboot.....
 }
@@ -199,58 +81,131 @@ void  FlashHM() {  //server request to flash avr file to HM...file exists on spi
 
 
 
-void sendHMJsonweb() {
+
+void  FlashHM(AsyncWebServerRequest *request) {  //server request to flash avr file to HM...file exists on spiffs	
+	if (!WebServer.isAuthorized(request)) return;
+
+	String fname = "";	
+	if (request->hasParam("fname")) { fname=request->arg("fname"); }
+
+	if (fname == "") return request->send(200, "text/html", "Flashing File NOT FOUND");;
+	DebugPrintln("FLashing :" + request->arg("fname"));
+	avrGlobal.FlashHMFileAsync = fname;
+	request->send(200, "text/html", "Flashing avr....please wait...will auto-reboot...do NOT touch system!!!");
+	
+	
+}
 
 
-	if (!MyWebServer.isAuthorized()) return;
 
+
+void sendCurInfo(AsyncWebServerRequest *request) {
+
+
+	if (!WebServer.isAuthorized(request)) return;
+
+	
+	DynamicJsonBuffer jsonBuffer;
+
+	JsonObject& root = jsonBuffer.parseObject("{}");  //parse weburl
+
+	root["pittemp"] = avrGlobal.curData.PitTemp;
+	root["food1"] = avrGlobal.curData.Food1;
+	root["food2"] = avrGlobal.curData.Food2;
+	root["food3"] = avrGlobal.curData.Food3;
+	root["fancur"] = avrGlobal.curData.Fan;
+	root["fanavg"] = avrGlobal.curData.FanAvg;
+	root["setpoint"] = avrGlobal.curData.SetPoint;
+	root["lidopen"] = avrGlobal.curData.LidCountDown;	
+	root["status"] = CookStatus.status;
+	for (int fx = 0; fx < 4; fx++) {
+		root["STimer" + String(fx)] = CookStatus.StartTime[fx];
+		root["ETimer" + String(fx)] = CookStatus.EndTime[fx];
+		root["PN" + String(fx)] = avrGlobal.Probes[fx].Name;
+	}  //for each probe
+
+
+	String newvalues;
+
+	root.printTo(newvalues);
+
+	AsyncWebServerResponse *response = request->beginResponse(200, "application/json", newvalues);
+	response->addHeader("Access-Control-Allow-Origin", "*");
+	request->send(response);	
+
+}
+
+
+void sendHMJsonweb(AsyncWebServerRequest *request) {
 
 	String postStr = "{";
-	if (avrGlobal.avrPitTemp != "U")  postStr += "\"pittemp\":" + avrGlobal.avrPitTemp + ",";
-	if (avrGlobal.avrFood1 != "U") postStr += "\"food1\":" + avrGlobal.avrFood1 + ",";
-	if (avrGlobal.avrFood2 != "U") postStr += "\"food2\":" + avrGlobal.avrFood2 + ",";
-	if (avrGlobal.avrAmbient != "U") postStr += "\"food3\":" + avrGlobal.avrAmbient + ",";
-	if (avrGlobal.avrFanMovAvg != "U") postStr += "\"fanavg\":" + avrGlobal.avrFanMovAvg + ",";
-	if (avrGlobal.avrFan != "U") postStr += "\"fancur\":" + avrGlobal.avrFan + ",";
-	if (avrGlobal.avrSetPoint != "U") postStr += "\"setpoint\":" + avrGlobal.avrSetPoint + ",";
-	if (avrGlobal.avrLidOpenCountdown != "U") postStr += "\"lidopen\":" + avrGlobal.avrLidOpenCountdown + ",";
-	if (postStr.charAt(postStr.length() - 1) == ',') postStr.remove(postStr.length() - 1, 1);
+	postStr += "\"time\":" + String(now()) + ",";
+	postStr += "\"set\":" + avrGlobal.avrSetPoint + ",";
+	postStr += "\"lid\":" + avrGlobal.avrLidOpenCountdown + ",";
+
+	postStr += "\"fan\":{";
+	postStr += "\"c\":" + avrGlobal.avrFan + ",";
+	postStr += "\"a\":" + avrGlobal.avrFanMovAvg; //+ ",";
+												//postStr += "\"f\":0"; //TODO: Add "f" and uncomment comma in line above
+	postStr += "},";
+
+
+	//TODO: Add "adc"
+	//...
+
+	postStr += "\"temps\":[";
+	for (int i = 0; i<4; i++)
+	{
+		postStr += "{";
+		postStr += "\"n\":\"" + avrGlobal.Probes[i].Name + "\",";
+
+		String t = (avrGlobal.Probes[i].curTemp == 0) ? "null" : String(avrGlobal.Probes[i].curTemp);
+		postStr += "\"c\":" + t + ",";
+
+		//postStr += "\"dph\":0,"; //TODO: Calculate and update dph (degrees per hour)
+		postStr += "\"a\":{\"l\":" + String(avrGlobal.Probes[i].AlarmLo) + ",\"h\":" + String(avrGlobal.Probes[i].AlarmHi) + ",\"r\":" + avrGlobal.AlarmRinging[i] + "}";
+
+		if (i <= 2) postStr += "},";
+	}
+	postStr += "}]";
+
 	postStr += "}";
 
-	server.send(200, "application/json", postStr);
-
+	request->send(200, "application/json", postStr);
 }
 
 
-void  setAVRweb() {	    ///hm/set?do=settemp&setpointf=225
+void  setAVRweb(AsyncWebServerRequest *request) {	    ///hm/set?do=settemp&setpointf=225
 	bool isOK = false;
-	if (!MyWebServer.isAuthorized()) return;
-	if (server.arg("do") == "settemp") {
-		if (server.arg("setpointf") != "") {
-			int nt=String(server.arg("setpointf")).toInt(); 
+	if (!WebServer.isAuthorized(request)) return;
+	//server.sendHeader("Access-Control-Allow-Origin", "*");
+	if (request->arg("do") == "settemp") {
+		if (request->arg("setpointf") != "") {
+			int nt=String(request->arg("setpointf")).toInt();
 			if (nt > 0) {
 				avrGlobal.SetTemp(nt);
-				server.send(200, "text/html", "Temp Set to : " + String(nt));
+				request->send(200, "text/html", "Temp Set to : " + String(nt));
 				isOK = true;
 			}
 		}
 	}
-	if (server.arg("do") == "setalarm") {    //hm/set?do=setalarm&alarms=10,10,20,20,30,30,40,40
-		if (server.arg("alarms") != "") {
-			String al = server.arg("alarms");
+	if (request->arg("do") == "setalarm") {    //hm/set?do=setalarm&alarms=10,10,20,20,30,30,40,40
+		if (request->arg("alarms") != "") {
+			String al = request->arg("alarms");
 			if (al.length() > 0) {
-				avrGlobal.ConfigAlarms(al);
-				server.send(200, "text/html", "Alarms Setup Sent");
+				avrGlobal.ConfigAlarms(al,true);   //async
+				request->send(200, "text/html", "Alarms Setup Sent");
 				isOK = true;
 			}
 		}
 	}
-	if (!isOK) { server.send(500, "text/html", "invalid request"); }
+	if (!isOK) { request->send(500, "text/html", "invalid request"); }
 }
 
-void  getAVRweb() {	    ///hm/set?do=settemp&setpointf=225
+void  getAVRweb(AsyncWebServerRequest *request) {	    ///hm/set?do=settemp&setpointf=225
 	bool isOK = false;
-	if (!MyWebServer.isAuthorized()) return;
+	if (!WebServer.isAuthorized(request)) return;
+	//server.sendHeader("Access-Control-Allow-Origin", "*");
 /*	if (server.arg("do") == "settemp") {
 		if (server.arg("setpointf") != "") {
 			int nt = String(server.arg("setpointf")).toInt();
@@ -261,20 +216,20 @@ void  getAVRweb() {	    ///hm/set?do=settemp&setpointf=225
 			}
 		}
 	} */
-	if (server.arg("do") == "getalarm") {    //hm/set?do=setalarm&alarms=10,10,20,20,30,30,40,40
+	if (request->arg("do") == "getalarm") {    //hm/set?do=setalarm&alarms=10,10,20,20,30,30,40,40
 			String al = avrGlobal.getAlarmsJson();
 			if (al.length() > 0) {	
-				server.send(200, "application/json", al);
+				request->send(200, "application/json", al);
 				isOK = true;
 			}		
 	}
-	if (!isOK) { server.send(500, "text/html", "invalid request"); }
+	if (!isOK) { request->send(500, "text/html", "invalid request"); }
 }
 
 /*
 void createThingSpeakChannel() {   //thingcreate?do=create&key=APIKEY
 	bool isOK = false;
-	if (!MyWebServer.isAuthorized()) return;
+	if (!WebServer.isAuthorized()) return;
 	if (server.arg("do") == "create") {
 		if (server.arg("key") != "") {
 			String tkey = String(server.arg("key"));
@@ -300,7 +255,7 @@ void JsonSaveCallback(String fname)  ///this is the callback funtion when the we
 }
 
 
-String qMakeMsg(String msgStr)   //qControl serial protocol message to avr,  msgStr needs the message type,  NOT the $$ of * around the string! it adds \n to end
+String qMakeMsg(String msgStr)   //qControl serial protocol message to avr,  msgStr needs the message type,  NOT the $$ or * around the string! it adds \n to end
 {
 	char cs = '\0'; //chksum
 	String curChk = "*";
@@ -340,69 +295,129 @@ GlobalsClass::GlobalsClass()
 		Probes[fx].AlarmHi=-10;
 		Probes[fx].AlarmLo=-10;
 		Probes[fx].Name = "Probe " + String(fx + 1);
-		Probes[fx].curTemp = 999;
+		Probes[fx].curTemp = -999;
 	}
 
 
 }
 
-void  GlobalsClass::SetTemp(int sndTemp)   //send temperature to HM via serial....
+void  GlobalsClass::SetTemp(int sndTemp)   //send temperature to HM via serial....will do it async/background
 {	
 	if (sndTemp>0)
 		{
 			SendStringToAVR(qMakeMsg("SETP="+String(sndTemp)));
-			//qCon.println(String("/set?sp=") + String(sndTemp));
-			//qCon.println(String("/set?tt=Remote Temp,Set to ") + String(sndTemp));
-			//DebugPrintln(String("Setting Remote Temp ") + String(sndTemp));
 			avrSetPoint = String(sndTemp);
 		}
 	
 }
 
 
+void sendCurGraphData(AsyncWebServerRequest *request) {	
+	request->send(200, "text/plain", AVRLogData.GetCurGraphData());
+}
 
-
-void testgz() {
+void testgz(AsyncWebServerRequest *request) {
 //	server.sendHeader("Content-Encoding", "gzip");
 //	server.send_P(200, "text/html", wifisetup_html_gz, sizeof(wifisetup_html_gz));
 //	FileSaveContent_P("/testconfig.html.gz", wifisetup_html_gz, sizeof(wifisetup_html_gz),false);
+	//server.sendHeader("Location", "http://code.jquery.com/jquery-2.2.4.min.js", true);
+	//server.send(302, "application/javascript", "");
+	//request->send(200, "text/plain", server.client().remoteIP().toString());
 }
 
-void stopAVR()
+void stopAVR(AsyncWebServerRequest *request)
 {
-	MyWebServer.isDownloading = true;  //stop all processes from running
+	WebServer.isDownloading = true;  //stop all processes from running
 	pinMode(byte(avrGlobal.txpin), INPUT);   //this will stop the transfer pin from being high and allow AVR to be programmed
 	//must reboot afterwards....	
-	server.send(200, "text/html", "AVR link has been stopped...now upload update to AVR.  Must reboot both AVR/Esp once done....");
+	request->send(200, "text/html", "AVR link has been stopped...now upload update to AVR.  Must reboot both AVR/Esp once done....");
 }
 
 
-void getAVRDebug() {  //get debug info from avr on serial
+void getAVRDebug(AsyncWebServerRequest *request) {  //get debug info from avr on serial
 
 	qCon.println("debug");
-	server.send(200, "text/html", "Debug info on serial...");
+	request->send(200, "text/html", "Debug info on serial...");
 }
+
+
+void handleCook(AsyncWebServerRequest *request) {//                        /curcook?do=timerstart&timer=3
+	bool isOK = false;
+	if (!WebServer.isAuthorized(request)) return;
+	//server.sendHeader("Access-Control-Allow-Origin", "*");
+
+	if (request->arg("do") == "cookstart") {
+		CookStatus.StartCook();
+		if (request->arg("setpointf") != "") {  //if setting point when starting....
+			int nt = String(request->arg("setpointf")).toInt();
+			if (nt > 0) avrGlobal.SetTemp(nt);
+		}
+		request->send(200, "text/plain", "OK");
+		isOK = true;
+	}
+	else if (request->arg("do") == "cookend") {
+		CookStatus.EndCook();
+		avrGlobal.SetTemp(1);  //when we stop cook we set pit temp to 1?
+		request->send(200, "text/plain", "OK END");
+		isOK = true;
+	}
+	else if (request->arg("do") == "timerstart") {  //timer=(1-3)
+		if (request->arg("timer") != "") {
+			int nt = String(request->arg("timer")).toInt();
+			if (nt > 0 && nt < 4) {
+				CookStatus.StartTimer(nt);
+				request->send(200, "text/plain", "OK");
+				isOK = true;
+			}
+		}		
+	}
+	else if (request->arg("do") == "timerend") {  //timer=(1-3)
+		if (request->arg("timer") != "") {
+			int nt = String(request->arg("timer")).toInt();
+			if (nt > 0 && nt < 4) {
+				CookStatus.StopTimer(nt);
+				request->send(200, "text/plain", "OK");
+				isOK = true;
+			}
+		}
+	}
+	else if (request->arg("do") == "info") {  //debug					
+		request->send(200, "text/plain", CookStatus.AsJSON() );
+					isOK = true;
+				}
+	if (!isOK) { request->send(500, "text/html", "invalid request"); }
+}
+
+
 
 
 void  GlobalsClass::begin()
 {
 	//serveron("/probesave", handleProbeSave);	
-	//MyWebServer.ServerON("/test", &TestCallback);
-    //MyWebServer.CurServer->on("/test", TestCallback);
+	//WebServer.ServerON("/test", &TestCallback);
+    //WebServer.CurServer->on("/test", TestCallback);
 	server.on("/flashavr", FlashHM);
-	server.on("/curinfo", sendHMJsonweb);
+	server.on("/curinfo", sendCurInfo);
 	server.on("/setpoint", setAVRweb);
 	server.on("/testgz", testgz);
 	server.on("/stopavr", stopAVR);
 	server.on("/setavr", setAVRweb);
 	server.on("/getavr", getAVRweb);
 	server.on("/debug", getAVRDebug);
-//	server.on("/thingcreate", createThingSpeakChannel); do it in javascript now....
+	server.on("/graphcurdata", sendCurGraphData);
+	server.on("/curcook", handleCook);
 	
+	//HM compat
+	server.on("/luci/lm/hmstatus", sendHMJsonweb);
+	server.on("/luci/admin/lm", [](AsyncWebServerRequest *request) {request->send(301, "text/html", ""); });
+	server.on("/luci/admin/lm/hist", [](AsyncWebServerRequest *request) {request->send(200, "text/html", "1405344600, 65, 94.043333333333, nan, 44.475555555556, 82.325555555556, 0\n"); });
+
+
+
 	loadSetup(); //load from spiffs
 
-
-	MyWebServer.jsonSaveHandle = &JsonSaveCallback;  //server on jsonsave file we hook into it to see which one and process....
+	
+	WebServer.jsonSaveHandle = &JsonSaveCallback;  //server on jsonsave file we hook into it to see which one and process....
 
 #ifdef SoftSerial
 #include <mySoftwareSerial.h>
@@ -428,9 +443,29 @@ void  GlobalsClass::begin()
 	
 
 	lastTimerChk = millis() - (updateInterval * 1000) - 100; //force timer...
+	CookStatus.begin(); 
+	AVRLogData.begin();  //ensure log file is not too big for local logging
 }
 
 
+
+
+void SendStringToAVRASYNC(const String& msgStr) {
+	qCon.println(msgStr);
+	qCon.flush();
+	String res = qCon.readStringUntil('\n');
+	Serial.println(res);
+	delay(comdelay);
+}
+
+
+
+
+
+void GlobalsClass::SendStringToAVR(const String& msgStr)  //async, we need to set string for loop sending in main thread
+{
+	AVRStringAsync = msgStr;
+}
 
 void  GlobalsClass::SendHeatGeneralToAVR(String fname) {   //sends general info to HM
 
@@ -456,7 +491,7 @@ void  GlobalsClass::SendHeatGeneralToAVR(String fname) {   //sends general info 
 
 		//set PID                 
 
-		SendStringToAVR(qMakeMsg("PROGSTART|ALL"));
+		SendStringToAVRASYNC(qMakeMsg("PROGSTART|ALL"));
 
 		qCon.flush();
 		delay(10);
@@ -474,7 +509,7 @@ void  GlobalsClass::SendHeatGeneralToAVR(String fname) {   //sends general info 
 
 		sprintf(jData, "p:%s,i:%s,d:%s,b:%s,f:%i", dtostrf(PID_P, 0, 5, pidp), dtostrf(PID_I, 0, 5, pidi), dtostrf(PID_D, 0, 5, pidd), dtostrf(PID_B, 0, 5, pidb), String(root["freq"].asString()).toInt());
 		
-		SendStringToAVR(qMakeMsg("PID|" + String(jData)));   //send CFGPID		
+		SendStringToAVRASYNC(qMakeMsg("PID|" + String(jData)));   //send CFGPID		
 	
 		
 
@@ -485,7 +520,7 @@ void  GlobalsClass::SendHeatGeneralToAVR(String fname) {   //sends general info 
 			String(root["gpio"].asString()).toInt(),						
 			String(root["srvlow"].asString()).toInt());
 
-		SendStringToAVR(qMakeMsg("CFGF|" + String(jData)));   //send fan   1/2 half
+		SendStringToAVRASYNC(qMakeMsg("CFGF|" + String(jData)));   //send fan   1/2 half
 
 		sprintf(jData, "sh:%i,pm:%i,ms:%i,fd:%i,sp:%i",     //pm is not used?
 			String(root["srvhi"].asString()).toInt(),
@@ -494,7 +529,7 @@ void  GlobalsClass::SendHeatGeneralToAVR(String fname) {   //sends general info 
 			String(root["fanflr"].asString()).toInt(),
 			String(root["srvcl"].asString()).toInt());
 
-		SendStringToAVR(qMakeMsg("CFGF|" + String(jData)));   //send fan  2/2 half
+		SendStringToAVRASYNC(qMakeMsg("CFGF|" + String(jData)));   //send fan  2/2 half
 		
 
 
@@ -504,11 +539,11 @@ void  GlobalsClass::SendHeatGeneralToAVR(String fname) {   //sends general info 
 			String(root["maxset"].asString()).toInt(),
 			String(root["prestr"].asString()).toInt());
 
-		SendStringToAVR(qMakeMsg("CFGGEN|" + String(jData)));   //send general
+		SendStringToAVRASYNC(qMakeMsg("CFGGEN|" + String(jData)));   //send general
 		
 
 
-		SendStringToAVR(qMakeMsg("SAVE|ALL"));   //SAVE ALL
+		SendStringToAVRASYNC(qMakeMsg("SAVE|ALL"));   //SAVE ALL
 		
 
 		//qCon.println("debug");
@@ -539,7 +574,7 @@ void GlobalsClass::SendProbesToAVR(String fname) {   //sends Probes info to HM
 			return;
 		}
 
-		SendStringToAVR(qMakeMsg("PROGSTART|ALL"));   //Start Program Mode;
+		SendStringToAVRASYNC(qMakeMsg("PROGSTART|ALL"));   //Start Program Mode;
 
 		qCon.flush();
 		delay(10);
@@ -556,14 +591,14 @@ void GlobalsClass::SendProbesToAVR(String fname) {   //sends Probes info to HM
 				root[cP+"name"].asString());
 			Probes[fx].Name = root[cP + "name"].asString();
 
-			SendStringToAVR(qMakeMsg("P=" + String(fx + 1) + "|" + String(jData)));   //names
+			SendStringToAVRASYNC(qMakeMsg("P=" + String(fx + 1) + "|" + String(jData)));   //names
 
 			sprintf(jData, "a:%s,b:%s,c:%s",
 				root[cP + "a"].asString(),
 				root[cP + "b"].asString(),
 				root[cP + "c"].asString());   //coefficients
 
-			SendStringToAVR(qMakeMsg("P=" + String(fx + 1) + "|" + String(jData)));  //coefficents
+			SendStringToAVRASYNC(qMakeMsg("P=" + String(fx + 1) + "|" + String(jData)));  //coefficents
 
 			sprintf(jData, "pt:%i,gp:%i,rs:%li,pf:%i",
 				String(root[cP + "conn"].asString()).toInt(),
@@ -571,7 +606,7 @@ void GlobalsClass::SendProbesToAVR(String fname) {   //sends Probes info to HM
 				String(root[cP + "r"].asString()).toInt(),
 				String(root[cP + "off"].asString()).toInt());
 
-			SendStringToAVR(qMakeMsg("P=" + String(fx + 1) + "|" + String(jData)));  //everything else
+			SendStringToAVRASYNC(qMakeMsg("P=" + String(fx + 1) + "|" + String(jData)));  //everything else
 
 			
 			alarms += String(root[cP + "all"].asString()) + "," + String(root[cP + "alh"].asString()) +",";  //build alarm setting string;
@@ -582,7 +617,7 @@ void GlobalsClass::SendProbesToAVR(String fname) {   //sends Probes info to HM
 		//send alarm settings like thingspeak command;
 		ConfigAlarms(alarms);
 
-		SendStringToAVR(qMakeMsg("SAVE|ALL"));   //SAVE ALL
+		SendStringToAVRASYNC(qMakeMsg("SAVE|ALL"));   //SAVE ALL
 			
 	//	qCon.println("debug");
 	}  //open file success
@@ -614,34 +649,36 @@ bool GlobalsClass::WaitForAVROK()
 }
 
 
-void GlobalsClass::SendStringToAVR(const String& msgStr)
-{	
-//	Serial.println(msgStr);
-//	for (int fy = 0; fy < msgStr.length(); fy++)
-//	{
-//		qCon.write(msgStr.charAt(fy));
-	//	delay(1);  //prevent serial buffer overrun?
-//	}	
-	qCon.println(msgStr);
-	qCon.flush();
-	String res = qCon.readStringUntil('\n');
-	Serial.println(res);
-	delay(comdelay);
-}
 
 void GlobalsClass::handle()
-{
+{	
 	if (qCon.available() > 0) checkSerialMsg();
+
+
+#ifndef HEATERMETER     //qcontrol we poll for info instead of auto-receiving
 
 	if (millis() - lastTimerChk >= updateInterval * 1000)  //POLL AVR FOR INFO;
 	{
 		lastTimerChk = millis();
-		if (MyWebServer.OTAisflashing == false && MyWebServer.isDownloading == false) qCon.println("INFO");  //only send when not in programming eeprom mode.		
+		if (WebServer.OTAisflashing == false && WebServer.isDownloading == false) qCon.println("INFO");  //only send when not in programming eeprom mode.		
 	}
 
+#endif // !HEATERMETER
+
+	
 	//alarm time checking
 	if (ResetTimeCheck > 0) {
 		if (millis() - ResetTimeCheck > (ResetAlarmSeconds * 1000)) { ResetAlarms(); }   //check to see if we've past resetalarm;
+	}
+
+	if (AVRStringAsync != "") {                     //async,  can't send to avr within web request so we have to do in main handle...
+		SendStringToAVRASYNC(AVRStringAsync);
+		AVRStringAsync = "";
+	}
+
+	if (FlashHMFileAsync != "") {
+		FlashHMAsync();
+		FlashHMFileAsync = "";
 	}
 }
 
@@ -724,7 +761,7 @@ boolean validatechksum(String msg)
 	}
 	else { 
 	DebugPrintln("*** Serial MSG CHKSUM FAILED ***");
-	MyWebServer.ServerLog("CF:CHKSUM Failed" );
+	WebServer.ServerLog("CF:CHKSUM Failed" );
 	return false;
 	}
 }
@@ -751,8 +788,22 @@ void  GlobalsClass::checkSerialMsg()
 		avrFan = getValue(msgStr, 6);    //  if (hmFan == "U") hmFan = "0";
 		avrFanMovAvg = getValue(msgStr, 7); //if (hmFanMovAvg == "U") hmFanMovAvg = "0";
 		avrLidOpenCountdown = getValue(msgStr, 8);//	if (hmLidOpenCountdown == "U") hmLidOpenCountdown = "0";
+		curData.SetPoint = avrSetPoint.toInt();
+		curData.PitTemp =  avrPitTemp.toInt();
+		curData.Food1 = avrFood1.toInt();
+		curData.Food2 = avrFood2.toInt();
+		curData.Food3 = avrAmbient.toInt();
+		curData.Fan = avrFan.toInt();
+		curData.FanAvg = avrFanMovAvg.toInt();
+		curData.LidCountDown = avrLidOpenCountdown.toInt();
+		curData.readTime = now();
+		Probes[0].curTemp = curData.PitTemp;
+		Probes[1].curTemp = curData.Food1;
+		Probes[2].curTemp = curData.Food2;
+		Probes[3].curTemp = curData.Food3;
+		if (CookStatus.status==1) AVRLogData.LogData(curData);  //log locally when cooking is active;
 	}
-	else if ((getValue(msgStr, 0) == "$HMAL")) //Alarm is firing...
+	else if ((getValue(msgStr, 0) == "$HMAL")) //Alarm is firing....
 	{
 		if (validatechksum(msgStr) == false) return;
 		String AlarmInfo;
@@ -762,6 +813,7 @@ void  GlobalsClass::checkSerialMsg()
 		HasAlarm = false;
 		int msgpos = 1;
 		for (int i = 0; i < 4; i++) {
+			bool ringing = false;
 			String AlarmLo;
 			String AlarmHi;
 			AlarmLo = getValue(msgStr, msgpos);
@@ -770,6 +822,8 @@ void  GlobalsClass::checkSerialMsg()
 				AlarmLo.remove(AlarmLo.length() - 1, 1);
 				AlarmInfo += "Probe " + String(i + 1) + " Low:  " + AlarmLo + " ! ";
 				HasAlarm = true;
+				AlarmRinging[i] = "\"L\"";
+				ringing = true;
 			}
 			msgpos += 1;
 			AlarmHi = getValue(msgStr, msgpos);
@@ -778,17 +832,25 @@ void  GlobalsClass::checkSerialMsg()
 				AlarmHi.remove(AlarmHi.length() - 1, 1);
 				AlarmInfo += "Probe " + String(i + 1) + " Hi:  " + AlarmHi + " ! ";
 				HasAlarm = true;
+				AlarmRinging[i] = "\"H\"";
+				ringing = true;
 			}
+
+			if (ringing == false)
+			{
+				AlarmRinging[i] = "null";
+			}
+
 			msgpos += 1;
 		}  //for each probe, check alarms
-		//reset alarms
+		   //reset alarms
 		if (ResetTimeCheck > 0) { HasAlarm = false; }  //if we're already in alarm countdown, ignore alarm....
-		if (HasAlarm)	{
+		if (HasAlarm) {
 			if (ResetAlarmSeconds > 0) { ResetTimeCheck = millis(); }
 			else { ResetTimeCheck = 0; }   //reset alarm in x Seconds.
-		MQTTLink.SendAlarm(AlarmInfo);
-		ThingSpeak.SendAlarm(AlarmInfo);		
-		}		
+			MQTTLink.SendAlarm(AlarmInfo);
+			ThingSpeak.SendAlarm(AlarmInfo);
+		}
 	} else  if ((getValue(msgStr, 0) == "$QCAL")) //Alarm was fired (one time)....QControl  $QCAL,PitName1,Low,CheckTemp,CurTemp     ($QCAL, probe Name, Low or High, alarmtemp, curtemp)
 	{
 		if (validatechksum(msgStr) == false) return;
@@ -872,6 +934,7 @@ void GlobalsClass::loadProbes()
 			Probes[fx].Name = root[cP + "name"].asString();		
 			Probes[fx].AlarmLo = String(root[cP + "all"].asString()).toInt();
 			Probes[fx].AlarmHi = String(root[cP + "alh"].asString()).toInt();
+			AlarmRinging[fx] = "null";
 		}  //for each probe
 	} //file exists;        
 }
@@ -896,7 +959,7 @@ void GlobalsClass::SaveProbes()
 			DebugPrintln("parseObject() probefile failed");
 			return;
 		}
-		for (int fx = 0; fx < 4; fx++) {
+		for (int fx = 0; fx < MAX_PROBES; fx++) {
 			String cP = "p" + String(fx);  //curProbe#			
 			root[cP + "name"] = Probes[fx].Name;
 			root[cP + "all"] = Probes[fx].AlarmLo;
@@ -919,18 +982,175 @@ void GlobalsClass::SaveProbes()
 
 
 
-void  GlobalsClass::ConfigAlarms(String msgStr)
+void  GlobalsClass::ConfigAlarms(String msgStr, bool Async)   //async will add to buffer 
 {   //format is $ALARM,10,20,30,40,50,60,70,80   (lo/hi pairs);  send to comport;
 	msgStr.replace("$ALARM,", "");  //remove the alarm command and send rest to HM
-	SendStringToAVR(qMakeMsg("SA|" + msgStr));   //send ProbeInfo to avr	
+	if (Async) 
+		SendStringToAVR(qMakeMsg("SA|" + msgStr));   //send ProbeInfo to avr (will use async)	
+	 else
+		SendStringToAVRASYNC(qMakeMsg("SA|" + msgStr));   //send ProbeInfo directly to avr	
+	
 	int fy = 0;
 	for (int fx = 0; fx < MAX_PROBES; fx++) {
 		Probes[fx].AlarmLo = String(getValue(msgStr, fy)).toInt(); fy++;
 		Probes[fx].AlarmHi = String(getValue(msgStr, fy)).toInt(); fy++;
 	}
 	SaveProbes();//save to file
-//	qCon.println("/set?al="+msgStr); delay(comdelay);
 	DebugPrintln("setting new alarms " + msgStr);
-//	qCon.println("/set?tt=Web Alarms,Updated.."); delay(comdelay);
 }
 
+void HMGlobalClass::SetTemp(int sndTemp)
+{
+	if (sndTemp>0)
+	{
+		qCon.println(String("/set?sp=") + String(sndTemp));
+		qCon.println(String("/set?tt=Remote Temp,Set to ") + String(sndTemp));
+		DebugPrintln(String("Setting Remote Temp ") + String(sndTemp));
+		avrSetPoint = String(sndTemp);
+	}
+}
+
+void HMGlobalClass::SendHeatGeneralToAVR(String fname)
+{
+
+	String values = "";
+	String hmsg;
+	File f = SPIFFS.open(fname, "r");
+	if (f) { // we could open the file 
+		values = f.readStringUntil('\n');  //read json         
+		f.close();
+
+		//WRITE CONFIG TO HeaterMeter
+		//fBuf(sbuf,"/set?sp=%iF",299);  //format command;
+		DynamicJsonBuffer jsonBuffer;
+
+		JsonObject& root = jsonBuffer.parseObject(values);  //parse weburl
+		if (!root.success())
+		{
+			DebugPrintln("parseObject() failed");
+			return;
+		}
+		//const char* sensor    = root["sensor"];
+		//long        time      = root["time"];
+		//double      latitude  = root["data"][0];
+		//double      longitude = root["data"][1];           }
+
+		//set PID                 
+
+		qCon.println(String("/set?pidb=") + root["pidb"].asString()); delay(comdelay);
+		qCon.println(String("/set?pidp=") + root["pidp"].asString()); delay(comdelay);
+		qCon.println(String("/set?pidi=") + root["pidi"].asString()); delay(comdelay);
+		qCon.println(String("/set?pidd=") + root["pidd"].asString()); delay(comdelay);
+
+		//Set Fan info /set?fn=FL,FH,SL,SH,Flags,MSS,FAF,SAC 
+		hmsg = String("/set?fn=") + root["minfan"].asString() + "," + root["maxfan"].asString() + "," + root["srvlow"].asString() + "," + root["srvhi"].asString() + "," + root["fanflg"].asString() + "," +
+			root["maxstr"].asString() + "," + root["fanflr"].asString() + "," + root["srvcl"].asString();
+
+		qCon.println(hmsg); delay(comdelay);
+		DebugPrintln(hmsg);
+		//Set Display props       
+		hmsg = String("/set?lb=") + root["blrange"].asString() + "," + root["hsmode"].asString() + "," + root["ledcfg"].asString();
+		qCon.println(hmsg); delay(comdelay);
+		DebugPrintln(hmsg);
+		//Set Lid props    
+		hmsg = String("/set?ld=") + root["lidoff"].asString() + "," + root["liddur"].asString();
+		qCon.println(hmsg); delay(comdelay);
+		DebugPrintln(hmsg);
+		qCon.println("/set?tt=Web Settings,Updated!!"); delay(comdelay);
+		qCon.println("/save?"); delay(comdelay);
+
+	}  //open file success
+
+
+}
+
+void HMGlobalClass::SendProbesToAVR(String fname)
+{   	String values = "";
+	String hmsg;
+	File f = SPIFFS.open(fname, "r");
+	if (f) { // we could open the file 
+		values = f.readStringUntil('\n');  //read json         
+		f.close();
+
+		//WRITE CONFIG TO HeaterMeter
+
+		DynamicJsonBuffer jsonBuffer;
+
+		JsonObject& root = jsonBuffer.parseObject(values);  //parse json data
+		if (!root.success())
+		{
+			DebugPrintln("parseObject() failed");
+			return;
+		}
+		//const char* sensor    = root["sensor"];
+		//long        time      = root["time"];
+		//double      latitude  = root["data"][0];
+		//double      longitude = root["data"][1];           }
+
+		//NOTE: Need to update global probe names here (ReadProbesJSON function only called on start-up)
+		for (int fx = 0; fx < 4; fx++) {
+			String cP = "p" + String(fx);  //curProbe#			
+			Probes[fx].Name = root[cP + "name"].asString();
+			Probes[fx].AlarmLo = String(root[cP + "all"].asString()).toInt();
+			Probes[fx].AlarmHi = String(root[cP + "alh"].asString()).toInt();
+		}  //for each prob
+
+		qCon.println(String("/set?pn0=") + Probes[0].Name); delay(comdelay);
+		qCon.println(String("/set?pn1=") + Probes[1].Name); delay(comdelay);
+		qCon.println(String("/set?pn2=") + Probes[2].Name); delay(comdelay);
+		qCon.println(String("/set?pn3=") + Probes[3].Name); delay(comdelay);
+
+		//Set offsets
+		hmsg = String("/set?po=") + root["p0off"].asString() + "," + root["p1off"].asString() + "," + root["p2off"].asString() + "," + root["p3off"].asString();
+		qCon.println(hmsg); delay(comdelay);
+		DebugPrintln(hmsg);
+
+		//Set Probe coeff.
+		hmsg = String("/set?pc0=") + root["p0a"].asString() + "," + root["p0b"].asString() + "," + root["p0c"].asString() + "," + root["p0r"].asString() + "," + root["p0trm"].asString();
+		qCon.println(hmsg); delay(comdelay);
+		DebugPrintln(hmsg);
+		hmsg = String("/set?pc1=") + root["p1a"].asString() + "," + root["p1b"].asString() + "," + root["p1c"].asString() + "," + root["p1r"].asString() + "," + root["p1trm"].asString();
+		qCon.println(hmsg); delay(comdelay);
+		DebugPrintln(hmsg);
+		hmsg = String("/set?pc2=") + root["p2a"].asString() + "," + root["p2b"].asString() + "," + root["p2c"].asString() + "," + root["p2r"].asString() + "," + root["p2trm"].asString();
+		qCon.println(hmsg); delay(comdelay);
+		DebugPrintln(hmsg);
+		hmsg = String("/set?pc3=") + root["p3a"].asString() + "," + root["p3b"].asString() + "," + root["p3c"].asString() + "," + root["p3r"].asString() + "," + root["p3trm"].asString();
+		qCon.println(hmsg); delay(comdelay);
+		DebugPrintln(hmsg);
+
+
+		hmsg = String("/set?al=") + String(Probes[0].AlarmLo) + "," + String(Probes[0].AlarmHi) + "," +  // HMGlobal.hmAlarmLo[1] + "," + HMGlobal.hmAlarmHi[1] + "," + HMGlobal.hmAlarmLo[2] + "," + HMGlobal.hmAlarmHi[2] + "," + HMGlobal.hmAlarmLo[3] + "," + HMGlobal.hmAlarmHi[3];
+			String(Probes[1].AlarmLo) + "," + String(Probes[1].AlarmHi) + "," +
+			String(Probes[2].AlarmLo) + "," + String(Probes[2].AlarmHi) + "," +
+			String(Probes[3].AlarmLo) + "," + String(Probes[3].AlarmHi);
+		qCon.println(hmsg); delay(comdelay);
+		DebugPrintln(hmsg);
+
+
+		qCon.println("/set?tt=Web Settings,Updated!!"); delay(comdelay);
+		qCon.println("/save?"); delay(comdelay);		
+	}  //open file success
+	loadProbes(); //reload probe structs in memory
+}
+
+void HMGlobalClass::ConfigAlarms(String msgStr, bool Async)
+{
+	//format is $ALARM,10,20,30,40,50,60,70,80   (lo/hi pairs);  send to comport;
+	msgStr.replace("$ALARM,", "");  //remove the alarm command and send rest to HM
+	qCon.println("/set?al=" + msgStr); //delay(comdelay);
+	DebugPrintln("setting new alarms " + msgStr);
+	qCon.println("/set?tt=Web Alarms,Updated..");// delay(comdelay);
+	int fy = 0;
+	for (int fx = 0; fx < MAX_PROBES; fx++) {
+		Probes[fx].AlarmLo = String(getValue(msgStr, fy)).toInt(); fy++;
+		Probes[fx].AlarmHi = String(getValue(msgStr, fy)).toInt(); fy++;
+	}
+	SaveProbes();//save to file
+}
+
+void HMGlobalClass::ResetAlarms()
+{
+	ResetTimeCheck = 0;
+	qCon.println("/set?al=0,0,0,0,0,0,0,0"); //delay(comdelay);
+}

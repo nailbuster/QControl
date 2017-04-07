@@ -1,11 +1,9 @@
 <html><head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
-    <script type="text/javascript" src="http://netdna.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
-    <link href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript" src="/jquery.min.js"></script>
+    <script type="text/javascript" src="/bootstrap.min.js"></script>    
+    <link rel="stylesheet" href="/bootstrap.min.css">    		
   </head><body>
     <div class="navbar navbar-default navbar-static-top">
       <div class="container">
@@ -95,27 +93,18 @@
 	
 <script>    
 //get alarmsJSON
-var xmlhttp = new XMLHttpRequest();
-var url = "/getavr?do=getalarm ";
-            
-    xmlhttp.onreadystatechange = function() {
-                if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-                    var myArr = JSON.parse(xmlhttp.responseText);
-				    var probes=myArr["ProbeNames"];
-					var probesLo=myArr["ProbeAlarmsLo"];					
-					var probesHi=myArr["ProbeAlarmsHi"];					
+window.onload = function () {
+ $.get( "/getavr?do=getalarm", function( data ) {  																			          
+                    var probes=data.ProbeNames;
+					var probesLo=data.ProbeAlarmsLo;					
+					var probesHi=data.ProbeAlarmsHi;					
 					for (i = 0; i < probes.length; i++) { 
 								$("#p"+String(i)).text(probes[i]);								
 								$("#plo"+String(i+1)).val(probesLo[i]);		                                					
 								$("#phi"+String(i+1)).val(probesHi[i]);								
-								 }	  						  
-		            
-                }
-            };
-
-xmlhttp.open("GET", url, true);
-xmlhttp.send();
-
+								 }	                                                                           
+							});
+} //on windows load
 </script>
   
   <script>

@@ -19,12 +19,14 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "MQTTLink.h"
 #include "globals.h"
-#include <myWebServer.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h> 
 #include <FS.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <PubSubclient.h>
+#include <myWebServerAsync.h>
 
 WiFiClient wclient;
 PubSubClient mqttclient(wclient);
@@ -63,7 +65,7 @@ void callbackMQTT(const MQTT::Publish& pub) {     //callback when we get a msg f
 	}
 	if (pub.topic() == MQTTLink.mqSubTopic + "/SetAlarm")  //setTemp
 	{
-		avrGlobal.ConfigAlarms(pub.payload_string()); 
+		avrGlobal.ConfigAlarms(pub.payload_string(),true); 
 	}
 }
 
@@ -85,10 +87,16 @@ void MQTTLinkClass::SubscribeMqtt()    ///called in loop and enabled   example t
 
 	if (WiFi.status() == WL_CONNECTED) {
 		if (!mqttclient.connected()) {
-			if (mqttclient.connect(MQTT::Connect("espHeater").set_auth(mqUser, mqPassword))) {
+			if (mqttclient.connect(MQTT::Connect("espHeater").set_auth(mqUser, mqPassword)
+				//.set_keepalive(15)
+				//Send will message with QoS=0 and retain=true
+				.set_will(mqPubTopic + "/status", "offline", 0, true)))
+			{
+				mqttclient.publish(MQTT::Publish(mqPubTopic + "/status", "online").set_retain());
+
 				mqttclient.subscribe(mqSubTopic + "/#");
 				DebugPrintln("connected to MQTT");
-			} 
+			}
 		}
 	}
 

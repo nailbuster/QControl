@@ -1,10 +1,9 @@
 <html><head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
-    <script type="text/javascript" src="http://netdna.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
-    <link href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" crossorigin="anonymous">
+    <script type="text/javascript" src="/jquery.min.js"></script>
+    <script type="text/javascript" src="/bootstrap.min.js"></script>    
+    <link rel="stylesheet" href="/bootstrap.min.css">    
   </head><body>
  <div class="navbar navbar-default navbar-static-top"><div class="container"><div class="navbar-header">
  <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navbar-ex-collapse">
@@ -145,7 +144,7 @@
                       <label class="control-label">Admin User Name:</label>
                     </div>
                     <div class="col-sm-10">
-                      <input type="text" class="form-control" disabled="disabled" placeholder="Admin">
+                      <input type="text" class="form-control" disabled="disabled" placeholder="admin">
                     </div>
                   </div>
                   <div class="form-group">
@@ -161,7 +160,7 @@
                       <label class="control-label">Confirm Password:</label>
                     </div>
                     <div class="col-sm-10">
-                      <input type="text" class="form-control" placeholder="Confirm" name="AccessPass2" id="AccessPass2">
+                      <input type="password" class="form-control" placeholder="Confirm" name="AccessPass2" id="AccessPass2">
                     </div>
                   </div>
                   <div class="form-group">
@@ -330,18 +329,10 @@
             		document.getElementById("scanbut").value='wait'; }
     </script>
     <script>
-      var xmlhttp = new XMLHttpRequest();
-                                                                              var url ="/jsonload?f=wifiset.json";
-                                                                              
-                                                                              xmlhttp.onreadystatechange = function() {
-                                                                                  if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-                                                                                      var myArr = JSON.parse(xmlhttp.responseText);
-                                                                                      myFunction(myArr);
-                                                                                  }
-                                                                              };
-                                                                              xmlhttp.open("GET", url, true);
-                                                                              xmlhttp.send();
-                                                                              
+
+                                                                              $.get( "/jsonload?f=wifiset.json", function( data ) {  																			          
+                                                                                      myFunction(data);                                                                            
+																				});
                                                                               
                                                                               
                                                                               
@@ -408,11 +399,8 @@
                                                                                          else  {data[field.name] = field.value;}                          
                                                                                       }//not input or select so do nothing...                       
                                                                                      } //for loop
-                                                                              var xhttp = new XMLHttpRequest();       
-                                                                              xhttp.open("POST","/jsonsave?f=wifiset.json", false);
-                                                                              xhttp.setRequestHeader("Content-type","application/json");//"application/x-www-form-urlencoded");  //
-                                                                              //xhttp.send("JSON=" + JSON.stringify(data));  
-                                                                              xhttp.send(JSON.stringify(data));  
+																					 //alert("/jsonsave?f=wifiset.json&js="+JSON.stringify(data));
+																			  $.post( "/jsonsave?f=wifiset.json&js="+JSON.stringify(data));		                                                                           
                                                                               alert("Please reboot device!");
                                                                               }
     </script>

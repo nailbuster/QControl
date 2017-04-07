@@ -26,11 +26,23 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #endif
 
 
-#define comdelay 10  //serial comdelay
 //#define AVR_COM_BAUDRATE 57600
 #define MAX_PROBES 4
+//#define HEATERMETER
 
 
+#define vernum "1.0a"
+
+#ifdef HEATERMETER
+#define comdelay 200  //serial comdelay
+#else 
+#define comdelay 20  //serial comdelay
+#endif // !HEATERMETER
+
+
+
+
+#include "CookClass.h"
 
 struct ProbesStruct {
 	String Name;
@@ -38,6 +50,18 @@ struct ProbesStruct {
 	int curTemp;
 };
 
+
+struct curDataStruct {
+	unsigned long readTime = 0;
+	int SetPoint = 0,
+		PitTemp = 0,
+		Food1 = 0,
+		Food2 = 0,
+		Food3 = 0,
+		Fan = 0,
+		FanAvg = 0,
+		LidCountDown = 0;
+};
 
 
 class GlobalsClass
@@ -59,12 +83,18 @@ public:
 		 avrFanMovAvg,
 		 avrLidOpenCountdown;
 
- ProbesStruct Probes[MAX_PROBES];
+ String AlarmRinging[4];
 
- int ResetAlarmSeconds = 10;  //number of seconds before we reset alarm....0 = means never....
+ ProbesStruct Probes[MAX_PROBES];
+ curDataStruct curData;
+
+  int ResetAlarmSeconds = 10;  //number of seconds before we reset alarm....0 = means never....
  byte updateInterval = 3;  //interval to poll AVR.
  unsigned long ResetTimeCheck, lastTimerChk;
+ String AVRStringAsync = "";  //set this for async sending to AVR
+ String FlashHMFileAsync = "";
  GlobalsClass();
+ 
  void SetTemp(int sndTemp);
  void begin();
  void SendHeatGeneralToAVR(String fname);
@@ -77,12 +107,27 @@ public:
  void loadSetup();
  void loadProbes();
  void SaveProbes();
- void ConfigAlarms(String msgStr);
+ void ConfigAlarms(String msgStr, bool Async = false);
  String getValue(String data, int index, char separator = ',');
  String getAlarmsJson(); 
 };
 
+class HMGlobalClass : public GlobalsClass
+{
+public:
+	void SetTemp(int sndTemp);
+	void SendHeatGeneralToAVR(String fname);
+	void SendProbesToAVR(String fname);
+	void ConfigAlarms(String msgStr, bool Async = false);
+	void ResetAlarms();
+};
+
+
+#ifdef HEATERMETER
+extern HMGlobalClass avrGlobal;
+#else
 extern GlobalsClass avrGlobal;
+#endif
 
 #endif
 
